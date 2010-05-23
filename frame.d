@@ -40,9 +40,14 @@ import std.typecons;
 	//FramePointerからのOffsetでInFrameアクセスを返す
 +/
 
-/// VM向けFrame
+/**
+ * VM向けFrame
+ */
 class VmFrame
 {
+	/**
+	 * FrameやRegisterに保持された値へのアクセスを表現するクラス
+	 */
 	static class Access
 	{
 	private:
@@ -61,16 +66,31 @@ class VmFrame
 		}
 	}
 	
+	/**
+	 * 新しいFrameを生成する
+	 */
 	static VmFrame newFrame(temp.Label label, bool[] formals){
 		return new VmFrame(label, formals);
 	}
 	
+	/**
+	 * 
+	 */
 	temp.Label name(){
 		return namelabel;
 	}
+	
+	/**
+	 * 
+	 */
 	Access[] formals(){
 		return acclist;
 	}
+	
+	/**
+	 * 新しいローカル変数を確保する
+	 * Params:
+	 */
 	Access allocLocal(bool escape){
 		auto acc = new Access(this, /*escape*/true);	//常にescapeする
 		acclist ~= acc;

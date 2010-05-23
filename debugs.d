@@ -1,4 +1,4 @@
-module debugs;
+﻿module debugs;
 
 public import std.string	: format;
 public import std.conv		: to;
