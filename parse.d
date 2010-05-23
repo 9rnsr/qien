@@ -142,9 +142,9 @@ class ParseException : Exception
 
 
 /// AstNode#nextを辿って列挙する
-int delegate(int delegate(ref AstNode)) each(AstNode n)
+int delegate(scope int delegate(ref AstNode)) each(AstNode n)
 {
-	return (int delegate(ref AstNode) dg){
+	return (scope int delegate(ref AstNode) dg){
 		while( n ){
 			if( n.tag == AstTag.NOP ) break;
 			if( auto result = dg(n) ) return result;
@@ -443,7 +443,7 @@ private:
 	}
 	
 	
-	AstNode parseCommaList(AstNode delegate() parseX){
+	AstNode parseCommaList(scope AstNode delegate() parseX){
 		if( auto n = parseX() ){
 			auto tail = n;
 			while( t == TokTag.COMMA ){
