@@ -6,6 +6,7 @@ static import temp;
 import sym;
 import std.string;
 import std.typecons;
+import debugs;
 
 /*
 	関数Body毎に作られる、
@@ -141,10 +142,12 @@ class VmFrame
 			s = tuple(label, str);
 		}
 		
-		string toString(){
+		void debugOut(){
+			void put(string s){ debugout("%s", s); }
+			
 			final switch( tag ){
-			case Tag.PROC:	return format("Proc: %s, %s", p.field[0], p.field[1]);
-			case Tag.STR:	return format("String: %s, %s", s.field[0], s.field[1]);
+			case Tag.PROC:	return tree_out(&put)(p.field[0]);
+			case Tag.STR:	return put(format("String: %s, %s", s.field[0], s.field[1]));
 			}
 		}
 	}

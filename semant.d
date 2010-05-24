@@ -24,8 +24,10 @@ Ty semant(AstNode n)
 	
 	translate.procEntryExit(translate.outermost, exp);
 	
-	debugout("semant.frag[] =\n%(s\n)", translate.getResult());
+	auto res = translate.getResult();
 	
+	debugout("semant.frag[] = ");
+	foreach( frag; res ) frag.debugOut();
 	return ty;
 }
 

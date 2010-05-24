@@ -5,6 +5,8 @@ static import temp;
 import tok : IntT;
 import std.typecons;
 import std.conv;
+import debugs;
+
 
 template to(U : string)
 {
@@ -69,17 +71,17 @@ private:
 		tag = t;
 	}
 public:
-	string toString(){
+	void debugOut(TreeOut tout){
 		auto tagname = to!string(tag);
 		final switch( tag ){
-		case Tag.VINT:	return tagname ~ "("~to!string(i.field)~")";
-		case Tag.VFUN:	return tagname ~ "("~to!string(f.field)~")";
-		case Tag.NAME:	return tagname ~ "("~to!string(n.field)~")";
-		case Tag.TEMP:	return tagname ~ "("~to!string(t.field)~")";
-		case Tag.BIN:	return tagname ~ "("~to!string(b.field)~")";
-		case Tag.MEM:	return tagname ~ "("~to!string(m.field)~")";
-		case Tag.CALL:	return tagname ~ "("~to!string(c.field)~")";
-		case Tag.ESEQ:	return tagname ~ "("~to!string(e.field)~")";
+		case Tag.VINT:	return tout("("~tagname, i.field, ")");
+		case Tag.VFUN:	return tout("("~tagname, f.field, ")");
+		case Tag.NAME:	return tout("("~tagname, n.field, ")");
+		case Tag.TEMP:	return tout("("~tagname, t.field, ")");
+		case Tag.BIN:	return tout("("~tagname, b.field, ")");
+		case Tag.MEM:	return tout("("~tagname, m.field, ")");
+		case Tag.CALL:	return tout("("~tagname, c.field, ")");
+		case Tag.ESEQ:	return tout("("~tagname, e.field, ")");
 		}
 	}
 }
@@ -124,6 +126,7 @@ Exp ESEQ(Stm stm, Exp exp){
 	return x;
 }
 
+
 class Stm
 {
 private:
@@ -148,15 +151,15 @@ private:
 		tag = t;
 	}
 public:
-	string toString(){
+	void debugOut(TreeOut tout){
 		auto tagname = to!string(tag);
 		final switch( tag ){
-		case Tag.MOVE:	return tagname ~ "("~to!string(m.field)~")";
-		case Tag.EXP:	return tagname ~ "("~to!string(e.field)~")";
-		case Tag.JUMP:	return tagname ~ "("~to!string(j.field)~")";
-		case Tag.CJUMP:	return tagname ~ "("~to!string(c.field)~")";
-		case Tag.SEQ:	return tagname ~ "("~to!string(s.field)[1..$-1]~")";
-		case Tag.LABEL:	return tagname ~ "("~to!string(l.field)~")";
+		case Tag.MOVE:	return tout("("~tagname, m.field, ")");
+		case Tag.EXP:	return tout("("~tagname, e.field, ")");
+		case Tag.JUMP:	return tout("("~tagname, j.field, ")");
+		case Tag.CJUMP:	return tout("("~tagname, c.field, ")");
+		case Tag.SEQ:	return tout("("~tagname, s.field, ")");;
+		case Tag.LABEL:	return tout("("~tagname, l.field, ")");;
 		}
 	}
 }
