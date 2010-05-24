@@ -143,11 +143,9 @@ class VmFrame
 		}
 		
 		void debugOut(){
-			void put(string s){ debugout("%s", s); }
-			
 			final switch( tag ){
-			case Tag.PROC:	return tree_out(&put)(p.field[0]);
-			case Tag.STR:	return put(format("String: %s, %s", s.field[0], s.field[1]));
+			case Tag.PROC:	return debugout(p.field[0]);
+			case Tag.STR:	return debugout(format("String: %s, %s", s.field[0], s.field[1]));
 			}
 		}
 	}

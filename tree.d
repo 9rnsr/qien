@@ -74,14 +74,14 @@ public:
 	void debugOut(TreeOut tout){
 		auto tagname = to!string(tag);
 		final switch( tag ){
-		case Tag.VINT:	return tout("("~tagname, i.field, ")");
-		case Tag.VFUN:	return tout("("~tagname, f.field, ")");
-		case Tag.NAME:	return tout("("~tagname, n.field, ")");
-		case Tag.TEMP:	return tout("("~tagname, t.field, ")");
-		case Tag.BIN:	return tout("("~tagname, b.field, ")");
-		case Tag.MEM:	return tout("("~tagname, m.field, ")");
-		case Tag.CALL:	return tout("("~tagname, c.field, ")");
-		case Tag.ESEQ:	return tout("("~tagname, e.field, ")");
+		case Tag.VINT:	return tout(tagname, i.field);
+		case Tag.VFUN:	return tout(tagname, f.field);
+		case Tag.NAME:	return tout(tagname, n.field);
+		case Tag.TEMP:	return tout(tagname, t.field);
+		case Tag.BIN:	return tout(tagname, b.field);
+		case Tag.MEM:	return tout(tagname, m.field);
+		case Tag.CALL:	return tout(tagname, c.field);
+		case Tag.ESEQ:	return tout(tagname, e.field);
 		}
 	}
 }
@@ -154,12 +154,12 @@ public:
 	void debugOut(TreeOut tout){
 		auto tagname = to!string(tag);
 		final switch( tag ){
-		case Tag.MOVE:	return tout("("~tagname, m.field, ")");
-		case Tag.EXP:	return tout("("~tagname, e.field, ")");
-		case Tag.JUMP:	return tout("("~tagname, j.field, ")");
-		case Tag.CJUMP:	return tout("("~tagname, c.field, ")");
-		case Tag.SEQ:	return tout("("~tagname, s.field, ")");;
-		case Tag.LABEL:	return tout("("~tagname, l.field, ")");;
+		case Tag.MOVE:	return tout(tagname, m.field);
+		case Tag.EXP:	return tout(tagname, e.field);
+		case Tag.JUMP:	return tout(tagname, j.field);
+		case Tag.CJUMP:	return tout(tagname, c.field);
+		case Tag.SEQ:	return tout(tagname, s.field);;
+		case Tag.LABEL:	return tout(tagname, l.field);;
 		}
 	}
 }

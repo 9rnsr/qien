@@ -4,7 +4,11 @@ public import std.string	: format;
 public import std.conv		: to;
 
 import std.stdio : writefln;
+import std.stdio : write;
 import std.conv;
+import std.string : repeat;
+import std.traits : ParameterTypeTuple;
+
 void debugout(T...)(T args) if( (T.length==1 || T.length>=3) && is(T[0] : string) ){
 	writefln(args);
 }
@@ -12,12 +16,20 @@ T[1] debugout(T...)(T args) if( (T.length==2) && is(T[0] : string) ){
 	writefln(args);
 	return args[1];
 }
+T debugout(T)(T arg) if( __traits(compiles, arg.debugOut) ){
+	alias ParameterTypeTuple!(typeof(arg.debugOut)) Prms;
+	static if( Prms.length==1 && is(Prms[0] == TreeOut) ){
+		void put(string s){ write(s); };
+		
+		arg.debugOut(tree_out(&put, 0));
+		put("\n");
+	}else{
+		static assert(0);
+	}
+	return arg;
+}
 
-
-import std.string;
-import std.traits;
-
-TreeOut tree_out(void delegate(string) dg, size_t lv=0){
+private TreeOut tree_out(void delegate(string) dg, size_t lv){
 	TreeOut dout;
 	dout.raw_put = dg;
 	dout.level = lv;
@@ -40,36 +52,79 @@ TreeOut tree_out(void delegate(string) dg, size_t lv=0){
  */
 struct TreeOut
 {
+	enum ParenL = "(";
+	enum ParenR = ")";
+	enum InlineCloseParen = true;
+	enum InlineSimpleNode = InlineCloseParen && true;
+	
+	enum tab = "  ";
+	
 	void delegate(string) raw_put;
 	size_t level = 0;
 	
 	void opCall(T...)(lazy T args){
 		//pragma(msg, T.stringof);
-		foreach( i,arg; args ){
-			auto lv = (i==0 || i==args.length-1) ? level : level+1;
-			
-			static if( is(typeof(args[i]) == string) ){
-				//debugout(">><%s> %s len=%s, i=%s", T.stringof, args[i](), args.length, i);
-				raw_put(repeat("  ", lv) ~ args[i]());
-			}else static if( is(typeof(args[i]) U == U[]) ){
-				auto nest = tree_out(raw_put, lv+1);
-				raw_put(repeat("  ", lv) ~ "[");
-				foreach( j, e; args[i] ){
-					nest(e);
-				}
-				raw_put(repeat("  ", lv) ~ "]");
-			}else static if( __traits(compiles, args[i]().debugOut) ){
-				alias ParameterTypeTuple!(typeof(args[i]().debugOut)) Prms;
+		
+		static if( InlineSimpleNode && args.length==2 && !(__traits(compiles, args[1]().debugOut) || is(typeof(args[1]) U == U[])) ){
+			enum InlineSimpleNode2 = true;
+		}else{
+			enum InlineSimpleNode2 = false;
+		}
+		
+		void put1(U)(void delegate(string) raw_put, size_t lv, size_t i, U arg){
+			static if( __traits(compiles, arg.debugOut) ){
+				alias ParameterTypeTuple!(typeof(arg.debugOut)) Prms;
 				static if( Prms.length==1 && is(Prms[0] == TreeOut) ){
-					//pragma(msg, "has tree_out : " ~ typeof(args[i]()).stringof);
-					args[i]().debugOut(tree_out(raw_put, lv));
+					if( i == 0 ) raw_put("\n");
+					arg.debugOut(tree_out(raw_put, lv));
 				}else{
 					static assert(0);
 				}
 			}else{
-				raw_put(repeat("  ", lv) ~ to!string(args[i]()));
+				if( InlineSimpleNode2 && i==1 ){
+					raw_put(" ");
+				}else if( i != 0 ){
+					raw_put(repeat(tab, lv));
+				}else{
+					//do nothing
+				}
+				
+				static if( is(typeof(arg) == string) ){
+					raw_put(arg);
+				}else static if( is(typeof(arg) U == U[]) ){
+					raw_put("[");
+					if( !arg.length ){
+						static if( !InlineCloseParen ) raw_put("\n");
+					}else{
+						foreach( j, e; arg ){
+							put1(raw_put, lv+1, j, e);
+							if( !InlineCloseParen || j!=arg.length-1 ) raw_put("\n");
+						}
+					}
+					static if( !InlineCloseParen ) raw_put(repeat(tab, lv));
+					raw_put("]");
+				}else{
+					raw_put(to!string(arg));
+				}
+			}
+			
+		}
+		
+		raw_put(repeat(tab, level));
+		raw_put(ParenL);
+		foreach( i,arg; args ){
+			put1(raw_put, level+1, i, args[i]());
+			
+			static if( InlineCloseParen && i==args.length-1 ){
+				//do nothing
+			}else static if( InlineSimpleNode2 && i==0 ){
+				//do nothing
+			}else{
+				raw_put("\n");
 			}
 		}
+		static if( !InlineCloseParen ) raw_put(repeat(tab, level));
+		raw_put(")");
 	}
 }
 
