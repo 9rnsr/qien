@@ -137,6 +137,7 @@ private:
 		CJUMP,
 		SEQ,
 		LABEL,
+		CLOS,
 	}
 	Tag tag;
 	union{
@@ -146,6 +147,7 @@ private:
 		Tuple!(Relop, Exp, Exp, temp.Label, temp.Label)	c;
 		Tuple!(Stm[])									s;
 		Tuple!(temp.Label)								l;
+		Tuple!(temp.Label)								a;
 	}
 	this(Tag t){
 		tag = t;
@@ -160,6 +162,7 @@ public:
 		case Tag.CJUMP:	return tout(tagname, c.field);
 		case Tag.SEQ:	return tout(tagname, s.field);;
 		case Tag.LABEL:	return tout(tagname, l.field);;
+		case Tag.CLOS:	return tout(tagname, a.field);
 		}
 	}
 }
@@ -192,4 +195,9 @@ Stm LABEL(temp.Label lbl){
 	auto s = new Stm(Stm.Tag.LABEL);
 	s.l = tuple(lbl);
 	return s;
+}
+Stm CLOS(temp.Label lbl){
+	auto x = new Stm(Stm.Tag.CLOS);
+	x.a = tuple(lbl);
+	return x;
 }

@@ -99,10 +99,11 @@ class VmFrame
 	}
 	
 	static tree.Exp frame_ptr;
-	static this(){ frame_ptr = tree.TEMP(temp.newTemp()); }
-	
 	static tree.Exp return_val;
-	static this(){ return_val = tree.TEMP(temp.newTemp()); }
+	static this(){
+		frame_ptr = tree.TEMP(temp.newTemp("FP"));
+		return_val = tree.TEMP(temp.newTemp("RV"));
+	}
 	
 	tree.Stm procEntryExit1(tree.Stm stm){
 		return stm;	//todo 本来のprologue/epilogueコードを付加していない

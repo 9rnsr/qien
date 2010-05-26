@@ -143,7 +143,7 @@ public:
 //	}
 	
 	/// 
-	Exp localVar(Level level, Access access){
+	Exp getVar(Level level, Access access){
 		auto slink = Frame.frame_ptr;
 		debugout("* %s", slink);
 		while( level !is access.level ){
@@ -153,7 +153,7 @@ public:
 		}
 		return new Exp(level.frame.exp(slink, access.access));
 	}
-	Exp localFun(Level level, Level bodylevel, temp.Label label){
+	Exp getFun(Level level, Level bodylevel, temp.Label label){
 		auto funlevel = bodylevel.parent;
 		auto slink = Frame.frame_ptr;
 		while( level !is funlevel ){
@@ -184,6 +184,19 @@ public:
 		return new Exp(tree.SEQ(unNx(s1), unNx(s2)));
 	}
 	
+	
+	/**
+	 * Params:
+	 *   level:		クロージャが定義されるレベル
+	 *   bodylevel:	クロージャ本体のレベル
+	 *   label:		クロージャ本体のラベル
+	 */
+	Exp makeClosure(Level level, Level bodylevel, temp.Label label){
+		return new Exp(tree.ESEQ(
+			tree.CLOS(label),							// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
+			tree.VFUN(Frame.frame_ptr, label)));		// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
+	}
+	
 	Exp assign(Level level, Access access, Exp value){
 		auto slink = Frame.frame_ptr;
 		while( level !is access.level ){
@@ -195,6 +208,10 @@ public:
 
 private:
 	enum size_t static_link_index = 0;
+	static tree.Exp nilTemp;
+	static this(){
+		nilTemp = tree.TEMP(temp.newTemp("Nil"));
+	}
 
 public:
 	tree.Exp unEx(Exp exp){
@@ -222,8 +239,8 @@ public:
 	tree.Stm unNx(Exp exp){
 		final switch( exp.tag ){
 		case Exp.Tag.EX:
-			auto t = temp.newTemp();	//不要な値を格納するテンポラリ
-			return tree.MOVE(exp.ex, tree.TEMP(t));
+			//auto t = temp.newTemp();	//不要な値を格納するテンポラリ
+			return tree.MOVE(exp.ex, nilTemp/*tree.TEMP(t)*/);
 		case Exp.Tag.NX:
 			return exp.nx;
 		case Exp.Tag.CX:
