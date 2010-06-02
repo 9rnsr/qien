@@ -4,7 +4,7 @@ public import parse, typ;
 import trans;
 import debugs;
 
-import file.tuple_tie;
+import typecons.tuple_tie;
 
 import frame : VmFrame;
 alias Translate!VmFrame translate;	//FrameとTranslateを結びつける
@@ -20,7 +20,7 @@ Ty semant(AstNode n)
 	
 	Ty	ty;
 	Exp	exp;
-	tie(&ty, &exp) = transExp(translate.outermost, tenv, venv, n);
+	tie(ty, exp) = transExp(translate.outermost, tenv, venv, n);
 	
 	translate.procEntryExit(translate.outermost, exp);
 	
@@ -158,8 +158,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.ADD:
 			Ty	tl, tr;
 			Exp	xl, xr;
-			tie(&tl, &xl) = trexp(n.lhs);
-			tie(&tr, &xr) = trexp(n.rhs);
+			tie(tl, xl) = trexp(n.lhs);
+			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, debugout("Add.Exp %s", translate.binAddInt(xl, xr)));
@@ -172,8 +172,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.SUB:
 			Ty	tl, tr;
 			Exp	xl, xr;
-			tie(&tl, &xl) = trexp(n.lhs);
-			tie(&tr, &xr) = trexp(n.rhs);
+			tie(tl, xl) = trexp(n.lhs);
+			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binSubInt(xl, xr));
@@ -186,8 +186,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.MUL:
 			Ty	tl, tr;
 			Exp	xl, xr;
-			tie(&tl, &xl) = trexp(n.lhs);
-			tie(&tr, &xr) = trexp(n.rhs);
+			tie(tl, xl) = trexp(n.lhs);
+			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binMulInt(xl, xr));
@@ -200,8 +200,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.DIV:
 			Ty	tl, tr;
 			Exp	xl, xr;
-			tie(&tl, &xl) = trexp(n.lhs);
-			tie(&tr, &xr) = trexp(n.rhs);
+			tie(tl, xl) = trexp(n.lhs);
+			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binDivInt(xl, xr));
@@ -215,11 +215,11 @@ out(r){ assert(r.field[1] !is null); }body
 			Ty  tf, tr;  Ty [] ta;
 			Exp xf, xr;  Exp[] xa;
 			
-			tie(&tf, &xf) = trexp(n.lhs);
+			tie(tf, xf) = trexp(n.lhs);
 			foreach( arg ; each(n.rhs) ){
 				ta.length += 1;
 				xa.length += 1;
-				tie(&ta[$-1], &xa[$-1]) = trexp(arg);
+				tie(ta[$-1], xa[$-1]) = trexp(arg);
 			}
 			tr = tenv.Meta(tenv.newmetavar());
 			if( !unify(tf, tenv.Arrow(ta, tr)) ){
@@ -258,7 +258,7 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				Ty  tb;
 				Exp xb;
-				tie(&tb, &xb) = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
+				tie(tb, xb) = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
 				if( !fn_tenv.unify(tr, tb) ){
 					debugout("return type mismatch in def-fun");
 					assert(0);
@@ -282,7 +282,7 @@ out(r){ assert(r.field[1] !is null); }body
 			}else{
 				Ty  ty;
 				Exp exp;
-				tie(&ty, &exp) = trexp(n.rhs);
+				tie(ty, exp) = trexp(n.rhs);
 				if( ty is tenv.Nil ) error(n.pos, "infer error...");
 				
 				auto acc = level.allocLocal(true);	//常にescapeするとする
@@ -305,9 +305,9 @@ out(r){ assert(r.field[1] !is null); }body
 	
 	Ty  ty;
 	Exp exp, x;
-	tie(&ty, &exp) = trexp(n);
+	tie(ty, exp) = trexp(n);
 	while( (n = n.next) !is null ){
-		tie(&ty, &x) = trexp(n);
+		tie(ty, x) = trexp(n);
 		exp = translate.sequence(exp, x);
 	}
 	return tuple(ty, exp);

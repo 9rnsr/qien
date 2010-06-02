@@ -2,7 +2,6 @@
 
 public import file.peek : FilePos;
 import file.peek;
-import file.tuple_tie;
 import std.contracts;
 import std.ctype : isalpha, isalnum, isdigit, isxdigit, toL=tolower;
 import debugs;

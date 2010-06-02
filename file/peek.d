@@ -2,7 +2,7 @@
 
 public import file.file : FilePos;
 import file.file;
-import file.tuple_tie;
+import std.typecons;
 import std.stdio : writef, writefln;
 
 
