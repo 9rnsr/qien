@@ -181,7 +181,7 @@ public:
 	}
 	
 	Exp sequence(Exp s1, Exp s2){
-		return new Exp(tree.SEQ(unNx(s1), unNx(s2)));
+		return new Exp(tree.SEQ([unNx(s1), unNx(s2)]));
 	}
 	
 	Exp assign(Level level, Access access, Exp value){
@@ -202,18 +202,18 @@ public:
 		case Exp.Tag.EX:
 			return exp.ex;
 		case Exp.Tag.NX:
-			return tree.ESEQ(exp.nx, tree.VINT(0));	//文は式として0を返す
+			return tree.ESEQ(exp.nx, tree.VINT(0L));	//文は式として0を返す
 		case Exp.Tag.CX:
 			auto r = temp.newTemp();
 			auto t = temp.newLabel(), f = temp.newLabel();
 			return tree.ESEQ(
-				tree.SEQ(
-					tree.MOVE(tree.VINT(1), tree.TEMP(r)),
+				tree.SEQ([
+					tree.MOVE(tree.VINT(1L), tree.TEMP(r)),
 					exp.cx(t, f),
 					tree.LABEL(f),
-					tree.MOVE(tree.VINT(0), tree.TEMP(r)),
+					tree.MOVE(tree.VINT(0L), tree.TEMP(r)),
 					tree.LABEL(t)
-				),
+				]),
 				tree.TEMP(r)
 			);
 		}
@@ -228,7 +228,7 @@ public:
 			return exp.nx;
 		case Exp.Tag.CX:
 			auto l = temp.newLabel();
-			return tree.SEQ(exp.cx(l, l), tree.LABEL(l));
+			return tree.SEQ([exp.cx(l, l), tree.LABEL(l)]);
 		}
 	}
 	tree.Stm delegate(temp.Label, temp.Label) unCx(Exp exp){

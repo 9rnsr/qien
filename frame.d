@@ -114,7 +114,7 @@ class VmFrame
 		if( access.tag == Access.IN_FRAME ){
 			return tree.MEM(
 				access.index > 0
-					? tree.BIN(tree.BinOp.ADD, fp, tree.VINT(wordSize * access.index))
+					? tree.BIN(tree.BinOp.ADD, fp, tree.VINT(cast(IntT)(wordSize * access.index)))
 					: fp
 			);
 		}else{
