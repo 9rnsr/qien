@@ -7,6 +7,8 @@ import sym;
 import debugs;
 import std.algorithm, std.array;
 
+import canon;
+
 /+
 	Temp	局所変数に対する抽象的な名前
 	label	静的なメモリ番地に対する抽象的な名前
@@ -104,7 +106,8 @@ public:
 	
 	static Frame.Fragment[] frag;
 	void procEntryExit(Level level, Exp bodyexp){
-		frag ~= new Frame.Fragment(unNx(bodyexp), level.frame);	//todo unNxではなく、Canon.linearizeなどを通した結果をfragに積むべき
+		auto lx = linearize(unNx(bodyexp));
+		frag ~= new Frame.Fragment(lx, level.frame);
 	}
 	
 	Frame.Fragment[] getResult(){

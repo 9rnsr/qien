@@ -27,7 +27,10 @@ Ty semant(AstNode n)
 	auto res = translate.getResult();
 	
 	debugout("semant.frag[] = ");
-	foreach( frag; res ) frag.debugOut();
+	foreach( frag; res ){
+		frag.debugOut();
+		debugout("----");
+	}
 	return ty;
 }
 

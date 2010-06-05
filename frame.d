@@ -130,10 +130,10 @@ class VmFrame
 		enum Tag{ PROC, STR };
 		Tag tag;
 		union{
-			Tuple!(tree.Stm, VmFrame)			p;
+			Tuple!(tree.Stm[], VmFrame)			p;
 			Tuple!(temp.Label, Const!string)	s;
 		}
-		this(tree.Stm body_stm, VmFrame frame){
+		this(tree.Stm[] body_stm, VmFrame frame){
 			tag = Tag.PROC;
 			p = tuple(body_stm, frame);
 		}
@@ -144,7 +144,9 @@ class VmFrame
 		
 		void debugOut(){
 			final switch( tag ){
-			case Tag.PROC:	return debugout(p.field[0]);
+			case Tag.PROC:
+				foreach( s; p.field[0] ) debugout(s);
+				break;
 			case Tag.STR:	return debugout(format("String: %s, %s", s.field[0], s.field[1]));
 			}
 		}

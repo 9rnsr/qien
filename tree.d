@@ -61,6 +61,26 @@ public:
 		case Tag.ESEQ:	return tout(tagname, data7.tupleof[1..$]);
 		}
 	}
+	
+	override bool opEquals(Object o)
+	{
+		if( auto e = cast(Exp)o ){
+			if( tag != e.tag ) return false;
+			
+			final switch( tag ){
+			case Tag.VINT:	foreach( i,t; data0.tupleof ) if( data0.tupleof[i] != e.data0.tupleof[i] ) return false;		break;
+			case Tag.VFUN:	foreach( i,t; data1.tupleof ) if( data1.tupleof[i] != e.data1.tupleof[i] ) return false;		break;
+			case Tag.NAME:	foreach( i,t; data2.tupleof ) if( data2.tupleof[i] != e.data2.tupleof[i] ) return false;		break;
+			case Tag.TEMP:	foreach( i,t; data3.tupleof ) if( data3.tupleof[i] != e.data3.tupleof[i] ) return false;		break;
+			case Tag.BIN:	foreach( i,t; data4.tupleof ) if( data4.tupleof[i] != e.data4.tupleof[i] ) return false;		break;
+			case Tag.MEM:	foreach( i,t; data5.tupleof ) if( data5.tupleof[i] != e.data5.tupleof[i] ) return false;		break;
+			case Tag.CALL:	foreach( i,t; data6.tupleof ) if( data6.tupleof[i] != e.data6.tupleof[i] ) return false;		break;
+			case Tag.ESEQ:	foreach( i,t; data7.tupleof ) if( data7.tupleof[i] != e.data7.tupleof[i] ) return false;		break;
+			}
+			return true;
+		}
+		return false;
+	}
 }
 mixin(Exp.Tycons!());
 
@@ -85,6 +105,24 @@ public:
 		case Tag.SEQ:	return tout(tagname, data4.tupleof[1..$]);
 		case Tag.LABEL:	return tout(tagname, data5.tupleof[1..$]);
 		}
+	}
+	
+	override bool opEquals(Object o)
+	{
+		if( auto s = cast(Stm)o ){
+			if( tag != s.tag ) return false;
+			
+			final switch( tag ){
+			case Tag.MOVE:	foreach( i,t; data0.tupleof ) if( data0.tupleof[i] != s.data0.tupleof[i] ) return false;		break;
+			case Tag.EXP:	foreach( i,t; data1.tupleof ) if( data1.tupleof[i] != s.data1.tupleof[i] ) return false;		break;
+			case Tag.JUMP:	foreach( i,t; data2.tupleof ) if( data2.tupleof[i] != s.data2.tupleof[i] ) return false;		break;
+			case Tag.CJUMP:	foreach( i,t; data3.tupleof ) if( data3.tupleof[i] != s.data3.tupleof[i] ) return false;		break;
+			case Tag.SEQ:	foreach( i,t; data4.tupleof ) if( data4.tupleof[i] != s.data4.tupleof[i] ) return false;		break;
+			case Tag.LABEL:	foreach( i,t; data5.tupleof ) if( data5.tupleof[i] != s.data5.tupleof[i] ) return false;		break;
+			}
+			return true;
+		}
+		return false;
 	}
 }
 mixin(Stm.Tycons!());
