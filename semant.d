@@ -50,18 +50,18 @@ void error(ref FilePos pos, string msg){
 class VarEnv
 {
 	struct VarEntry{ Ty ty;	Access access;	Object     isfun=null;	}
-	struct FunEntry{ Ty ty;	Level  level;	temp.Label label;		}
-	static assert(VarEntry.ty    .offsetof == FunEntry.ty   .offsetof);
-	static assert(VarEntry.access.offsetof == FunEntry.level.offsetof);
-	static assert(VarEntry.isfun .offsetof == FunEntry.label.offsetof);
+//	struct FunEntry{ Ty ty;	Level  level;	temp.Label label;		}
+//	static assert(VarEntry.ty    .offsetof == FunEntry.ty   .offsetof);
+//	static assert(VarEntry.access.offsetof == FunEntry.level.offsetof);
+//	static assert(VarEntry.isfun .offsetof == FunEntry.label.offsetof);
 	struct Entry
 	{
 		union{
-			FunEntry f;
+//			FunEntry f;
 			VarEntry v;
 		}
-		bool	isfun() const	{ return v.isfun !is null; }
-		Ty		ty()			{ return isfun ? f.ty : v.ty; }
+		bool	isfun() const	{ return false/*v.isfun !is null*/; }
+		Ty		ty()			{ return v.ty/*isfun ? f.ty : v.ty*/; }
 	}
 	
 	
@@ -87,7 +87,7 @@ class VarEnv
 			return true;
 		}
 	}
-	bool add(Symbol s, Level level, temp.Label label, Ty t){
+/+	bool add(Symbol s, Level level, temp.Label label, Ty t){
 		if( s in tbl ){
 			return false;
 		}else{
@@ -96,7 +96,7 @@ class VarEnv
 			tbl[s] = entry;
 			return true;
 		}
-	}
+	}+/
 	Entry* look(Symbol s){
 		if( auto pentry = s in tbl ){
 			return pentry;
@@ -146,11 +146,11 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("   instantiate -> %s", inst_t);
 				//debugout("   venv = %s", venv);
 				
-				if( !entry.isfun ){
-					return tuple(inst_t, debugout("Ident.Var %s", translate.localVar(level, entry.v.access)));
-				}else{
-					return tuple(inst_t, debugout("Ident.Fun %s", translate.localFun(level, entry.f.level, entry.f.label)));
-				}
+			//	if( !entry.isfun ){
+					return tuple(inst_t, debugout("Ident.Var %s", translate.getVar(level, entry.v.access)));
+			//	}else{
+			//		return tuple(inst_t, debugout("Ident.Fun %s", translate.getFun(level, entry.f.level, entry.f.label)));
+			//	}
 			}else{
 				error(n.pos, n.sym.name ~ " undefined");
 			}
@@ -268,7 +268,10 @@ out(r){ assert(r.field[1] !is null); }body
 				}
 				
 				auto tf2 = fn_tenv.generalize(tf);
-				if( !venv.add(id.sym, fn_level, fn_label, tf2) ){		//todo xbをFunEntryに格納する必要がある？
+				
+				auto acc = level.allocLocal(true);	//常にescapeするとする
+			//	if( !venv.add(id.sym, fn_level, fn_label, tf2) ){		//todo xbをFunEntryに格納する必要がある？
+				if( !venv.add(id.sym, acc, tf2) ){
 					error(n.pos, id.toString ~ " is already defined");
 				}
 				
@@ -280,7 +283,7 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				translate.procEntryExit(fn_level, xb);
 				
-				return tuple(tenv.Unit, debugout("Def.Fun", translate.constInt(0)));			//関数定義は実行処理を伴わない
+				return tuple(tenv.Unit, debugout("Def.Fun", translate.assign(level, acc, translate.makeClosure(level, fn_level, fn_label))));			//関数定義は実行処理を伴わない
 				
 			}else{
 				Ty  ty;
