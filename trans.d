@@ -1,7 +1,7 @@
 ﻿module trans;
 
-static import tree;
-static import temp;
+import tree;
+import temp;
 
 import sym;
 import debugs;
@@ -63,12 +63,17 @@ import canon;
 template Translate(Frame)
 {
 public:
+	/**
+	 *
+	 */
 	class Level
 	{
 	public:
+		/// 
 		Access[] formals(){
 			return acclist;
 		}
+		/// 
 		Access allocLocal(bool escape){
 			auto acc = new Access(this, frame.allocLocal(escape));
 			acclist ~= acc;
@@ -84,6 +89,9 @@ public:
 		}
 	}
 	
+	/**
+	 *
+	 */
 	class Access
 	{
 	private:
@@ -97,37 +105,39 @@ public:
 	
 	/// 
 	Level outermost;
-	static this() { outermost = new Level(null, Frame.newFrame(temp.namedLabel("__toplevel"), [])); }
+	static this() { outermost = new Level(null, Frame.newFrame(namedLabel("__toplevel"), [])); }
 	
 	/// 
-	Level newLevel(Level parent, temp.Label name, bool[] formals){
+	Level newLevel(Level parent, Label name, bool[] formals){
 		return new Level(parent, Frame.newFrame(name, true ~ formals));		//フレームポインタを追加
 	}
 	
-	static Frame.Fragment[] frag;
-	void procEntryExit(Level level, Exp bodyexp){
+	/// 
+	void procEntryExit(Level level, Ex bodyexp){
 		auto lx = linearize(unNx(bodyexp));
 		frag ~= new Frame.Fragment(lx, level.frame);
 	}
+	static Frame.Fragment[] frag;
 	
+	/// 
 	Frame.Fragment[] getResult(){
 		return frag;
 	}
 	
 	/// Translateによる処理の結果として生成されるIR
-	class Exp
+	class Ex
 	{
 	private:
 		enum Tag{ EX, NX, CX }
 		Tag tag;
 		union{
-			tree.Exp ex;
-			tree.Stm nx;
-			tree.Stm delegate(temp.Label t, temp.Label f) cx;
+			Exp ex;
+			Stm nx;
+			Stm delegate(Label t, Label f) cx;
 		}
-		this(tree.Exp exp)										{ tag = Tag.EX; ex = exp; }
-		this(tree.Stm stm)										{ tag = Tag.NX; nx = stm; }
-		this(tree.Stm delegate(temp.Label t, temp.Label f) cnd)	{ tag = Tag.CX; cx = cnd; }
+		this(Exp exp)								{ tag = Tag.EX; ex = exp; }
+		this(Stm stm)								{ tag = Tag.NX; nx = stm; }
+		this(Stm delegate(Label t, Label f) cnd)	{ tag = Tag.CX; cx = cnd; }
 	public:
 		string toString(){
 			final switch( tag ){
@@ -138,15 +148,17 @@ public:
 		}
 	}
 
-	Exp constInt(IntT v){
-		return new Exp(tree.VINT(v));
+	/// 
+	Ex constInt(IntT v){
+		return new Ex(VINT(v));
 	}
-//	Exp constReal(RealT v){
-//		return new Exp(tree.REAL(v));
+//	/// 
+//	Ex constReal(RealT v){
+//		return new Ex(REAL(v));
 //	}
 	
 	/// 
-	Exp getVar(Level level, Access access){
+	Ex getVar(Level level, Access access){
 		auto slink = Frame.frame_ptr;
 		debugout("* %s", slink);
 		while( level !is access.level ){
@@ -154,37 +166,44 @@ public:
 			level = level.parent;
 			debugout("* %s", slink);
 		}
-		return new Exp(level.frame.exp(slink, access.access));
+		return new Ex(level.frame.exp(slink, access.access));
 	}
-	Exp getFun(Level level, Level bodylevel, temp.Label label){
+	/// 
+	Ex getFun(Level level, Level bodylevel, Label label){
 		auto funlevel = bodylevel.parent;
 		auto slink = Frame.frame_ptr;
 		while( level !is funlevel ){
 			slink = level.frame.exp(slink, level.frame.formals[static_link_index]);	//静的リンクを取り出す
 			level = level.parent;
 		}
-		return new Exp(tree.VFUN(slink, label));
+		return new Ex(VFUN(slink, label));
 	}
 	
-	Exp callFun(Exp fun, Exp[] args){
-		return new Exp(tree.CALL(unEx(fun), array(map!(unEx)(args))));
+	/// 
+	Ex callFun(Ex fun, Ex[] args){
+		return new Ex(CALL(unEx(fun), array(map!(unEx)(args))));
 	}
 	
-	Exp binAddInt(Exp lhs, Exp rhs){
-		return new Exp(tree.BIN(tree.BinOp.ADD, unEx(lhs), unEx(rhs)));
+	/// 
+	Ex binAddInt(Ex lhs, Ex rhs){
+		return new Ex(BIN(BinOp.ADD, unEx(lhs), unEx(rhs)));
 	}
-	Exp binSubInt(Exp lhs, Exp rhs){
-		return new Exp(tree.BIN(tree.BinOp.SUB, unEx(lhs), unEx(rhs)));
+	/// 
+	Ex binSubInt(Ex lhs, Ex rhs){
+		return new Ex(BIN(BinOp.SUB, unEx(lhs), unEx(rhs)));
 	}
-	Exp binMulInt(Exp lhs, Exp rhs){
-		return new Exp(tree.BIN(tree.BinOp.MUL, unEx(lhs), unEx(rhs)));
+	/// 
+	Ex binMulInt(Ex lhs, Ex rhs){
+		return new Ex(BIN(BinOp.MUL, unEx(lhs), unEx(rhs)));
 	}
-	Exp binDivInt(Exp lhs, Exp rhs){
-		return new Exp(tree.BIN(tree.BinOp.DIV, unEx(lhs), unEx(rhs)));
+	/// 
+	Ex binDivInt(Ex lhs, Ex rhs){
+		return new Ex(BIN(BinOp.DIV, unEx(lhs), unEx(rhs)));
 	}
 	
-	Exp sequence(Exp s1, Exp s2){
-		return new Exp(tree.SEQ([unNx(s1), unNx(s2)]));
+	/// 
+	Ex sequence(Ex s1, Ex s2){
+		return new Ex(SEQ([unNx(s1), unNx(s2)]));
 	}
 	
 	
@@ -194,77 +213,77 @@ public:
 	 *   bodylevel:	クロージャ本体のレベル
 	 *   label:		クロージャ本体のラベル
 	 */
-	Exp makeClosure(Level level, Level bodylevel, temp.Label label){
-		return new Exp(tree.ESEQ(
-			tree.CLOS(label),							// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
-			tree.VFUN(Frame.frame_ptr, label)));		// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
+	Ex makeClosure(Level level, Level bodylevel, Label label){
+		return new Ex(ESEQ(
+			CLOS(label),						// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
+			VFUN(Frame.frame_ptr, label)));		// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
 	}
 	
-	Exp assign(Level level, Access access, Exp value){
+	/// 
+	Ex assign(Level level, Access access, Ex value){
 		auto slink = Frame.frame_ptr;
 		while( level !is access.level ){
 			slink = level.frame.exp(slink, level.frame.formals[static_link_index]);	//静的リンクを取り出す
 			level = level.parent;
 		}
-		return new Exp(tree.MOVE(unEx(value), level.frame.exp(slink, access.access)));
+		return new Ex(MOVE(unEx(value), level.frame.exp(slink, access.access)));
 	}
 
 private:
 	enum size_t static_link_index = 0;
-	static tree.Exp nilTemp;
+	static Exp nilTemp;
 	static this(){
-		nilTemp = tree.TEMP(temp.newTemp("Nil"));
+		nilTemp = TEMP(newTemp("Nil"));
 	}
 
 public:
-	tree.Exp unEx(Exp exp){
+	Exp unEx(Ex exp){
 		final switch( exp.tag ){
-		case Exp.Tag.EX:
+		case Ex.Tag.EX:
 			return exp.ex;
-		case Exp.Tag.NX:
-			return tree.ESEQ(exp.nx, tree.VINT(0L));	//文は式として0を返す
-		case Exp.Tag.CX:
-			auto r = temp.newTemp();
-			auto t = temp.newLabel(), f = temp.newLabel();
-			return tree.ESEQ(
-				tree.SEQ([
-					tree.MOVE(tree.VINT(1L), tree.TEMP(r)),
+		case Ex.Tag.NX:
+			return ESEQ(exp.nx, VINT(0L));	//文は式として0を返す
+		case Ex.Tag.CX:
+			auto r = newTemp();
+			auto t = newLabel(), f = newLabel();
+			return ESEQ(
+				SEQ([
+					MOVE(VINT(1L), TEMP(r)),
 					exp.cx(t, f),
-					tree.LABEL(f),
-					tree.MOVE(tree.VINT(0L), tree.TEMP(r)),
-					tree.LABEL(t)
+					LABEL(f),
+					MOVE(VINT(0L), TEMP(r)),
+					LABEL(t)
 				]),
-				tree.TEMP(r)
+				TEMP(r)
 			);
 		}
 		return null;
 	}
-	tree.Stm unNx(Exp exp){
+	Stm unNx(Ex exp){
 		final switch( exp.tag ){
-		case Exp.Tag.EX:
-			//auto t = temp.newTemp();	//不要な値を格納するテンポラリ
-			return tree.MOVE(exp.ex, nilTemp/*tree.TEMP(t)*/);
-		case Exp.Tag.NX:
+		case Ex.Tag.EX:
+			return MOVE(exp.ex, nilTemp);
+		case Ex.Tag.NX:
 			return exp.nx;
-		case Exp.Tag.CX:
-			auto l = temp.newLabel();
-			return tree.SEQ([exp.cx(l, l), tree.LABEL(l)]);
+		case Ex.Tag.CX:
+			auto l = newLabel();
+			return SEQ([exp.cx(l, l), LABEL(l)]);
 		}
 	}
-	tree.Stm delegate(temp.Label, temp.Label) unCx(Exp exp){
+	Stm delegate(Label, Label) unCx(Ex exp){
 		final switch( exp.tag ){
-		case Exp.Tag.EX:
+		case Ex.Tag.EX:
 			auto x = exp.ex;
-			return delegate(temp.Label t, temp.Label f){
+			return delegate(Label t, Label f){
 				assert(0);
-				return tree.Stm.init;	//todo
+				return Stm.init;	//todo
 			};
-		case Exp.Tag.NX:
-			return delegate(temp.Label t, temp.Label f){
+		case Ex.Tag.NX:
+			return delegate(Label t, Label f){
 				assert(0);
-				return tree.Stm.init;	//todo
+				return Stm.init;	//todo
 			};
-		case Exp.Tag.CX:
+		case Ex.Tag.CX:
 			return exp.cx;
 		}
 	}

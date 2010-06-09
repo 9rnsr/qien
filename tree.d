@@ -2,7 +2,7 @@
 
 static import temp;
 
-import tok : IntT;
+import tok;
 import std.typecons;
 import std.conv;
 import debugs;

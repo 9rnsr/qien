@@ -8,7 +8,7 @@ import typecons.tuple_tie;
 
 import frame : VmFrame;
 alias Translate!VmFrame translate;	//FrameとTranslateを結びつける
-alias translate.Exp		Exp;
+alias translate.Ex		Ex;
 alias translate.Access	Access;
 alias translate.Level	Level;
 
@@ -18,13 +18,13 @@ Ty semant(AstNode n)
 	auto tenv = new TyEnv();
 	auto venv = new VarEnv();
 	
-	Ty	ty;
-	Exp	exp;
-	tie(ty, exp) = transExp(translate.outermost, tenv, venv, n);
+	Ty ty;
+	Ex ex;
+	tie(ty, ex) = transExp(translate.outermost, tenv, venv, n);
 	
-	translate.procEntryExit(translate.outermost, exp);
+	translate.procEntryExit(translate.outermost, ex);
 	
-	auto res = translate.getResult();
+	auto res = translate.getResult().reverse;	//表示の見易さのため反転
 	
 	debugout("semant.frag[] = ");
 	foreach( frag; res ){
@@ -49,19 +49,10 @@ void error(ref FilePos pos, string msg){
 /// 
 class VarEnv
 {
-	struct VarEntry{ Ty ty;	Access access;	Object     isfun=null;	}
-//	struct FunEntry{ Ty ty;	Level  level;	temp.Label label;		}
-//	static assert(VarEntry.ty    .offsetof == FunEntry.ty   .offsetof);
-//	static assert(VarEntry.access.offsetof == FunEntry.level.offsetof);
-//	static assert(VarEntry.isfun .offsetof == FunEntry.label.offsetof);
 	struct Entry
 	{
-		union{
-//			FunEntry f;
-			VarEntry v;
-		}
-		bool	isfun() const	{ return false/*v.isfun !is null*/; }
-		Ty		ty()			{ return v.ty/*isfun ? f.ty : v.ty*/; }
+		Ty ty;
+		Access access;
 	}
 	
 	
@@ -81,22 +72,10 @@ class VarEnv
 		if( s in tbl ){
 			return false;
 		}else{
-			Entry entry;
-			entry.v = VarEntry(t, access);
-			tbl[s] = entry;
+			tbl[s] = Entry(t, access);
 			return true;
 		}
 	}
-/+	bool add(Symbol s, Level level, temp.Label label, Ty t){
-		if( s in tbl ){
-			return false;
-		}else{
-			Entry entry;
-			entry.f = FunEntry(t, level, label);
-			tbl[s] = entry;
-			return true;
-		}
-	}+/
 	Entry* look(Symbol s){
 		if( auto pentry = s in tbl ){
 			return pentry;
@@ -120,12 +99,12 @@ class VarEnv
 
 
 /// 
-Tuple!(Ty, Exp) transExp(Level level, TyEnv tenv, VarEnv venv, AstNode n)
+Tuple!(Ty, Ex) transExp(Level level, TyEnv tenv, VarEnv venv, AstNode n)
 out(r){ assert(r.field[1] !is null); }body
 {
 	const unify = &tenv.unify;	//短縮名
 	
-	Tuple!(Ty, Exp) trexp(AstNode n){
+	Tuple!(Ty, Ex) trexp(AstNode n){
 		final switch( n.tag ){
 		case AstTag.NOP:
 			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
@@ -134,10 +113,10 @@ out(r){ assert(r.field[1] !is null); }body
 			return tuple(tenv.Int, translate.constInt(n.i.val));
 		
 		case AstTag.REAL:
-			return tuple(tenv.Real, Exp.init);
+			return tuple(tenv.Real, Ex.init);
 		
 		case AstTag.STR:
-			return tuple(tenv.Str, Exp.init);
+			return tuple(tenv.Str, Ex.init);
 		
 		case AstTag.IDENT:
 			if( auto entry = venv.look(n.sym) ){
@@ -146,11 +125,7 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("   instantiate -> %s", inst_t);
 				//debugout("   venv = %s", venv);
 				
-			//	if( !entry.isfun ){
-					return tuple(inst_t, debugout("Ident.Var %s", translate.getVar(level, entry.v.access)));
-			//	}else{
-			//		return tuple(inst_t, debugout("Ident.Fun %s", translate.getFun(level, entry.f.level, entry.f.label)));
-			//	}
+				return tuple(inst_t, debugout("Ident.Var %s", translate.getVar(level, entry.access)));
 			}else{
 				error(n.pos, n.sym.name ~ " undefined");
 			}
@@ -159,64 +134,64 @@ out(r){ assert(r.field[1] !is null); }body
 			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
 		
 		case AstTag.ADD:
-			Ty	tl, tr;
-			Exp	xl, xr;
+			Ty tl, tr;
+			Ex xl, xr;
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
-				return tuple(tenv.Int, debugout("Add.Exp %s", translate.binAddInt(xl, xr)));
+				return tuple(tenv.Int, debugout("Add.Ex %s", translate.binAddInt(xl, xr)));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
-				return tuple(tenv.Real, Exp.init);
+				return tuple(tenv.Real, Ex.init);
 			}else{
 				error(n.pos, "+ mismatch types");
 			}
 		
 		case AstTag.SUB:
-			Ty	tl, tr;
-			Exp	xl, xr;
+			Ty tl, tr;
+			Ex xl, xr;
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binSubInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
-				return tuple(tenv.Real, Exp.init);
+				return tuple(tenv.Real, Ex.init);
 			}else{
 				error(n.pos, "- mismatch types");
 			}
 		
 		case AstTag.MUL:
-			Ty	tl, tr;
-			Exp	xl, xr;
+			Ty tl, tr;
+			Ex xl, xr;
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binMulInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
-				return tuple(tenv.Real, Exp.init);
+				return tuple(tenv.Real, Ex.init);
 			}else{
 				error(n.pos, "* mismatch types");
 			}
 		
 		case AstTag.DIV:
-			Ty	tl, tr;
-			Exp	xl, xr;
+			Ty tl, tr;
+			Ex xl, xr;
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
 				return tuple(tenv.Int, translate.binDivInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
-				return tuple(tenv.Real, Exp.init);
+				return tuple(tenv.Real, Ex.init);
 			}else{
 				error(n.pos, "/ mismatch types");
 			}
 		
 		case AstTag.CALL:
-			Ty  tf, tr;  Ty [] ta;
-			Exp xf, xr;  Exp[] xa;
+			Ty tf, tr;  Ty[] ta;
+			Ex xf, xr;  Ex[] xa;
 			
 			tie(tf, xf) = trexp(n.lhs);
 			foreach( arg ; each(n.rhs) ){
@@ -255,12 +230,12 @@ out(r){ assert(r.field[1] !is null); }body
 					fn_venv.add(prm.sym, prm_acc, t);
 				}
 				
-				Ty  tr, tf;
+				Ty tr, tf;
 				tr = fn_tenv.Meta(fn_tenv.newmetavar());
 				tf = fn_tenv.Arrow(tp, tr);
 				
-				Ty  tb;
-				Exp xb;
+				Ty tb;
+				Ex xb;
 				tie(tb, xb) = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
 				if( !fn_tenv.unify(tr, tb) ){
 					debugout("return type mismatch in def-fun");
@@ -270,7 +245,6 @@ out(r){ assert(r.field[1] !is null); }body
 				auto tf2 = fn_tenv.generalize(tf);
 				
 				auto acc = level.allocLocal(true);	//常にescapeするとする
-			//	if( !venv.add(id.sym, fn_level, fn_label, tf2) ){		//todo xbをFunEntryに格納する必要がある？
 				if( !venv.add(id.sym, acc, tf2) ){
 					error(n.pos, id.toString ~ " is already defined");
 				}
@@ -283,12 +257,18 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				translate.procEntryExit(fn_level, xb);
 				
-				return tuple(tenv.Unit, debugout("Def.Fun", translate.assign(level, acc, translate.makeClosure(level, fn_level, fn_label))));			//関数定義は実行処理を伴わない
+				//関数定義は実行処理を伴わない
+				return tuple(tenv.Unit,
+						debugout("Def.Fun",
+							translate.assign(
+								level,
+								acc,
+								translate.makeClosure(level, fn_level, fn_label))));
 				
 			}else{
-				Ty  ty;
-				Exp exp;
-				tie(ty, exp) = trexp(n.rhs);
+				Ty ty;
+				Ex ex;
+				tie(ty, ex) = trexp(n.rhs);
 				if( ty is tenv.Nil ) error(n.pos, "infer error...");
 				
 				auto acc = level.allocLocal(true);	//常にescapeするとする
@@ -304,19 +284,22 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("var ty = %s", ty);
 				debugout("    venv = %s", venv);
 				
-				return tuple(tenv.Unit, debugout("Def.Var %s", translate.assign(level, acc, exp)));	//初期化式の結果を代入
+				//初期化式の結果を代入
+				return tuple(tenv.Unit,
+						debugout("Def.Var %s",
+							translate.assign(level, acc, ex)));
 			}
 		}
 	}
 	
-	Ty  ty;
-	Exp exp, x;
-	tie(ty, exp) = trexp(n);
+	Ty ty;
+	Ex ex, x;
+	tie(ty, ex) = trexp(n);
 	while( (n = n.next) !is null ){
 		tie(ty, x) = trexp(n);
-		exp = translate.sequence(exp, x);
+		ex = translate.sequence(ex, x);
 	}
-	return tuple(ty, exp);
+	return tuple(ty, ex);
 }
 
 
