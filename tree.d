@@ -1,6 +1,6 @@
 ﻿module tree;
 
-static import temp;
+import temp;
 
 import tok;
 import std.typecons;
@@ -39,9 +39,9 @@ class Exp
 {
 	mixin TagUnion!(
 		"VINT",	IntT,
-		"VFUN",	Exp, temp.Label,
-		"NAME",	temp.Label,
-		"TEMP",	temp.Temp,
+		"VFUN",	Exp, Label,
+		"NAME",	Label,
+		"TEMP",	Temp,
 		"BIN", 	BinOp, Exp, Exp,
 		"MEM", 	Exp,
 		"CALL",	Exp, Exp[],
@@ -89,11 +89,11 @@ class Stm
 	mixin TagUnion!(
 		"MOVE",	Exp, Exp,
 		"EXP",	Exp,
-		"JUMP",	Exp, temp.Label[],
-		"CJUMP",Relop, Exp, Exp, temp.Label, temp.Label,
+		"JUMP",	Exp, Label[],
+		"CJUMP",Relop, Exp, Exp, Label, Label,
 		"SEQ",	Stm[],
-		"LABEL",temp.Label,
-		"CLOS",	temp.Label
+		"LABEL",Label,
+		"CLOS",	Label
 	);
 public:
 	void debugOut(TreeOut tout){

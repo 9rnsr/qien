@@ -102,50 +102,6 @@ private{
 	}
 }
 
-Stm do_stm(Stm s)
-{
-	Temp	r;
-	Label	t, f;
-	Label[]	ll;
-	Exp		e, a, b;
-	Exp[]	el;
-	Stm[]	sl;
-	Relop	rop;
-	
-	alias Exp E;
-	
-	return match(s,
-		MOVE(TEMP(&r),CALL(&e,&el)),{
-			return reorder_stm(e~el, (E e, E[] el){ return MOVE(TEMP(r),CALL(e,el)); });
-		},
-		MOVE(TEMP(&r), &b),{
-			return reorder_stm([b], (E e){ return MOVE(TEMP(r), e); });
-		},
-		MOVE(MEM(&e), &b),{
-			return reorder_stm([e,b], (E e, E b){ return MOVE(MEM(e), b); });
-		},
-		EXP(CALL(&e,&el)),{
-			return reorder_stm(e~el, (E e, E[] el){ return EXP(CALL(e,el)); });
-		},
-		EXP(&e),{
-			return reorder_stm([e], (E e){ return EXP(e); });
-		},
-		JUMP(&e, &ll),{
-			return reorder_stm([e], (E e){ return JUMP(e, ll); });
-		},
-		CJUMP(&rop,&a,&b,&t,&f),{
-			return reorder_stm([a,b], (E a, E b){ return CJUMP(rop,a,b,t,f); });
-		},
-		SEQ(&sl),{
-			return seq(do_stm(sl[0]), do_stm(sl[1]));
-		},
-		_,{
-			return reorder_stm([],(E[] _){ return s; });
-		}
-	);
-	
-}
-
 Tuple!(Stm, Exp) do_exp(Exp e)
 {
 	Stm		s;
@@ -175,13 +131,124 @@ Tuple!(Stm, Exp) do_exp(Exp e)
 		}
 	);
 }
+
+Stm do_stm(Stm s)
+{
+	Temp	r;
+	Label	t, f;
+	Label[]	ll;
+	Exp		e, a, b;
+	Exp[]	el;
+	Stm[]	sl;
+	Relop	rop;
+	
+	alias Exp E;
+	
+	return match(s,
+		MOVE(TEMP(&r),CALL(&e,&el)),{
+			return reorder_stm(e~el, (E e, E[] el){ return MOVE(TEMP(r),CALL(e,el)); });
+		},
+		MOVE(TEMP(&r), &b),{
+			return reorder_stm([b], (E e){ return MOVE(TEMP(r), e); });
+		},
+		MOVE(MEM(&e), &b),{
+			return reorder_stm([e,b], (E e, E b){ return MOVE(MEM(e), b); });
+		},
+		MOVE(ESEQ(&s,&e),&b),{
+			return do_stm(seq(s,MOVE(e,b)));
+		},
+		EXP(CALL(&e,&el)),{
+			return reorder_stm(e~el, (E e, E[] el){ return EXP(CALL(e,el)); });
+		},
+		EXP(&e),{
+			return reorder_stm([e], (E e){ return EXP(e); });
+		},
+		JUMP(&e, &ll),{
+			return reorder_stm([e], (E e){ return JUMP(e, ll); });
+		},
+		CJUMP(&rop,&a,&b,&t,&f),{
+			return reorder_stm([a,b], (E a, E b){ return CJUMP(rop,a,b,t,f); });
+		},
+		SEQ(&sl),{
+			return seq(do_stm(sl[0]), do_stm(sl[1]));
+		},
+		_,{
+			return reorder_stm([],(E[] _){ return s; });
+		}
+	);
+	
+}
+
+// ex 8.1
+unittest
+{
+	auto t1 = newTemp();
+	auto t2 = newTemp();
+	
+	auto s1 = LABEL(temp.newLabel());
+	auto s2 = LABEL(temp.newLabel());
+	auto e1 = NAME(temp.newLabel());
+	auto e2 = NAME(temp.newLabel());
+	auto e3 = NAME(temp.newLabel());
+	auto e4 = NAME(temp.newLabel());
+	auto e1N = BIN(BinOp.ADD, MEM(TEMP(t1)), MEM(TEMP(t2)));
+	auto e2N = BIN(BinOp.ADD, MEM(TEMP(t1)), MEM(TEMP(t2)));
+	
+	// a
+	assert(do_stm(MOVE(TEMP(t1), ESEQ(s1, e1)))
+		== seq(s1, MOVE(TEMP(t1), e1)));
+	
+	// b
+	assert(do_stm(MOVE(MEM(ESEQ(s1, e1)), e2))
+		== seq(s1, MOVE(MEM(e1), e2)));
+	
+	// c
+	assert(commute(s1, e1));
+	assert(do_stm(MOVE(MEM(e1), ESEQ(s1, e2)))
+		== seq(s1, MOVE(MEM(e1), e2)));
+	
+//	Temp tnew1, tnew2;
+//	assert(!commute(s1, e1N));
+//	assert(SEQ([MOVE(TEMP(&tnew1), e1N), SEQ([s1, MOVE(TEMP(&tnew2), e2)])])
+//		= do_stm(MOVE(MEM(e1N), ESEQ(s1, e2))));
+//	assert(tnew1 is tnew2);
+	
+	// d
+	assert(do_stm(EXP(ESEQ(s1, e1)))
+		== seq(s1, EXP(e1)));
+	
+	// e
+	assert(do_stm(EXP(CALL(ESEQ(s1, e1), [e2])))
+		== seq(s1, EXP(CALL(e1, [e2]))));
+	
+	// f
+	assert(do_stm(MOVE(TEMP(t1), CALL(ESEQ(s1, e1), [e2])))
+			== seq(s1, MOVE(TEMP(t1), CALL(e1, [e2]))));
+	
+	// g
+	assert(commute(s1, e2));
+	  assert(commute(s1, e1));
+		assert(do_stm(EXP(CALL(e1, [e2, ESEQ(s1, e3), e4])))
+			== seq(s1, EXP(CALL(e1, [e2, e3, e4]))));
+//	  assert(!commute(s1, e1N));
+//		assert(do_stm(EXP(CALL(e1N, [e2, ESEQ(s1, e3), e4])))
+//			== seq(MOVE(TEMP(_), e1N), seq(s1, EXP(CALL(TEMP(_), [e2, e3, e4])))));
+//	assert(!commute(s1, e2N));
+//	  assert(commute(s1, e1));
+//		assert(do_stm(EXP(CALL(e1, [e2N, ESEQ(s1, e3), e4])))
+//			== seq(MOVE(TEMP(_t2), e2N), seq(s1, EXP(CALL(e1, [TEMP(t2), e3, e4])))));
+//	  assert(!commute(s1, e1N));
+//		assert(do_stm(EXP(CALL(e1N, [e2N, ESEQ(s1, e3), e4])))
+//			== seq(MOVE(TEMP(_t1), e1N), seq(MOVE(TEMP(_t2), e2N), seq(s1, EXP(CALL(TEMP(_t1), [TEMP(_t2), e3, e4]))))));
+}
+
 unittest
 {
 	pp("unittest: canon");
 	
 	Stm s1_;	Stm s1 = LABEL(temp.newLabel());
 	Stm s2_;	Stm s2 = LABEL(temp.newLabel());
-	Exp e1_;	Exp e1 = NAME(temp.newLabel());	
+	Exp e1_;	Exp e1 = NAME(temp.newLabel());
 	
 	// 1
 	assert(do_exp(ESEQ(s1, ESEQ(s2, e1)))		== tuple(SEQ([s1, s2]), e1));
