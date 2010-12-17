@@ -2,7 +2,7 @@
 
 public import file.peek : FilePos;
 import file.peek;
-import std.contracts;
+import std.exception;
 import std.ctype : isalpha, isalnum, isdigit, isxdigit, toL=tolower;
 import debugs;
 

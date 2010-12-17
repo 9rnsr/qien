@@ -3,6 +3,7 @@
 import temp, tree;
 import typecons.tuple_match, typecons.tuple_tie;
 import std.traits;
+import std.typetuple : allSatisfy;
 
 import debugs;
 
