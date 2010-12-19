@@ -48,7 +48,7 @@ class VmFrame
 	/**
 	 * FrameやRegisterに保持された値へのアクセスを表現するクラス
 	 */
-	static class Access
+	static class Slot
 	{
 	private:
 		enum{ IN_REG, IN_FRAME }
@@ -83,7 +83,7 @@ class VmFrame
 	/**
 	 * 
 	 */
-	Access[] formals(){
+	Slot[] formals(){
 		return acclist;
 	}
 	
@@ -91,8 +91,8 @@ class VmFrame
 	 * 新しいローカル変数を確保する
 	 * Params:
 	 */
-	Access allocLocal(bool escape){
-		auto acc = new Access(this, /*escape*/true);	//常にescapeする
+	Slot allocLocal(bool escape){
+		auto acc = new Slot(this, /*escape*/true);	//常にescapeする
 		acclist ~= acc;
 		return acc;
 	}
@@ -108,10 +108,10 @@ class VmFrame
 		return stm;	//todo 本来のprologue/epilogueコードを付加していない
 	}
 	
-	tree.Exp exp(tree.Exp fp, Access access){
+	tree.Exp exp(tree.Exp fp, Slot access){
 		tree.Exp x;
 		
-		if( access.tag == Access.IN_FRAME ){
+		if( access.tag == Slot.IN_FRAME ){
 			return tree.MEM(
 				access.index > 0
 					? tree.BIN(tree.BinOp.ADD, fp, tree.VINT(cast(IntT)(wordSize * access.index)))
@@ -154,7 +154,7 @@ class VmFrame
 
 private:
 	Label namelabel;
-	Access[] acclist;
+	Slot[] acclist;
 	
 	static size_t wordSize = 4;
 	

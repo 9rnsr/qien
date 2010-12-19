@@ -57,8 +57,11 @@ import canon;
 	type Translate.access = level * Frame.access
 +/
 
-template Translate(Frame)
-{
+// 実行環境は仮想機械(VM)を使用する
+import frame : Frame = VmFrame;
+
+//template Translate(Frame)
+//{
 public:
 	/**
 	 *
@@ -92,17 +95,20 @@ public:
 	class Access
 	{
 	private:
-		Level			level;
-		Frame.Access	access;
-		this(Level lvl, Frame.Access acc){
-			level = lvl;
-			access = acc;
+		Level		level;
+		Frame.Slot	slot;
+		this(Level lv, Frame.Slot sl){
+			level = lv;
+			slot  = sl;
 		}
 	}
 	
 	/// 
 	Level outermost;
-	static this() { outermost = new Level(null, Frame.newFrame(namedLabel("__toplevel"), [])); }
+	static this()
+	{
+		outermost = new Level(null, Frame.newFrame(namedLabel("__toplevel"), []));
+	}
 	
 	/// 
 	Level newLevel(Level parent, Label name, bool[] formals){
@@ -165,7 +171,7 @@ public:
 			level = level.parent;
 			debugout("* %s", slink);
 		}
-		return new Ex(level.frame.exp(slink, access.access));
+		return new Ex(level.frame.exp(slink, access.slot));
 	}
 	/// 
 	Ex getFun(Level level, Level bodylevel, Label label){
@@ -225,7 +231,7 @@ public:
 			slink = level.frame.exp(slink, level.frame.formals[static_link_index]);	//静的リンクを取り出す
 			level = level.parent;
 		}
-		return new Ex(MOVE(unEx(value), level.frame.exp(slink, access.access)));
+		return new Ex(MOVE(unEx(value), level.frame.exp(slink, access.slot)));
 	}
 
 private:
@@ -286,5 +292,5 @@ public:
 			return exp.cx;
 		}
 	}
-}
+//}
 

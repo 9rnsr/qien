@@ -6,12 +6,6 @@ import debugs;
 
 import typecons.tuple_tie;
 
-import frame : VmFrame;
-alias Translate!VmFrame translate;	//FrameとTranslateを結びつける
-alias translate.Ex		Ex;
-alias translate.Access	Access;
-alias translate.Level	Level;
-
 /// 
 Ty semant(AstNode n)
 {
@@ -20,11 +14,11 @@ Ty semant(AstNode n)
 	
 	Ty ty;
 	Ex ex;
-	tie(ty, ex) = transExp(translate.outermost, tenv, venv, n);
+	tie(ty, ex) = transExp(trans.outermost, tenv, venv, n);
 	
-	translate.procEntryExit(translate.outermost, ex);
+	trans.procEntryExit(trans.outermost, ex);
 	
-	auto res = translate.getResult().reverse;	//表示の見易さのため反転
+	auto res = trans.getResult().reverse;	//表示の見易さのため反転
 	
 	debugout("semant.frag[] = ");
 	foreach( frag; res ){
@@ -109,7 +103,7 @@ out(r){ assert(r.field[1] !is null); }body
 			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
 		
 		case AstTag.INT:
-			return tuple(tenv.Int, translate.constInt(n.i.val));
+			return tuple(tenv.Int, trans.constInt(n.i.val));
 		
 		case AstTag.REAL:
 			return tuple(tenv.Real, Ex.init);
@@ -124,7 +118,7 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("   instantiate -> %s", inst_t);
 				//debugout("   venv = %s", venv);
 				
-				return tuple(inst_t, debugout("Ident.Var %s", translate.getVar(level, entry.access)));
+				return tuple(inst_t, debugout("Ident.Var %s", trans.getVar(level, entry.access)));
 			}else{
 				error(n.pos, n.sym.name ~ " undefined");
 			}
@@ -139,7 +133,7 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
-				return tuple(tenv.Int, debugout("Add.Ex %s", translate.binAddInt(xl, xr)));
+				return tuple(tenv.Int, debugout("Add.Ex %s", trans.binAddInt(xl, xr)));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
 				return tuple(tenv.Real, Ex.init);
 			}else{
@@ -153,7 +147,7 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
-				return tuple(tenv.Int, translate.binSubInt(xl, xr));
+				return tuple(tenv.Int, trans.binSubInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
 				return tuple(tenv.Real, Ex.init);
 			}else{
@@ -167,7 +161,7 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
-				return tuple(tenv.Int, translate.binMulInt(xl, xr));
+				return tuple(tenv.Int, trans.binMulInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
 				return tuple(tenv.Real, Ex.init);
 			}else{
@@ -181,7 +175,7 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tr, xr) = trexp(n.rhs);
 			
 			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
-				return tuple(tenv.Int, translate.binDivInt(xl, xr));
+				return tuple(tenv.Int, trans.binDivInt(xl, xr));
 			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
 				return tuple(tenv.Real, Ex.init);
 			}else{
@@ -203,7 +197,7 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("type mismatch");
 				assert(0);
 			}
-			xr = translate.callFun(xf, xa);
+			xr = trans.callFun(xf, xa);
 			
 			return tuple(tr, xr);
 		
@@ -218,7 +212,7 @@ out(r){ assert(r.field[1] !is null); }body
 				scope fn_venv = new VarEnv(venv);
 				
 				auto fn_label = newLabel();
-				auto fn_level = translate.newLevel(level, fn_label, []);
+				auto fn_level = trans.newLevel(level, fn_label, []);
 				
 				Ty[] tp;
 				foreach( prm; each(fn.prm) ){
@@ -254,15 +248,15 @@ out(r){ assert(r.field[1] !is null); }body
 				debugout("    tf2 = %s", tf2);
 				debugout("    venv = %s", venv);
 				
-				translate.procEntryExit(fn_level, xb);
+				trans.procEntryExit(fn_level, xb);
 				
 				//関数定義は実行処理を伴わない
 				return tuple(tenv.Unit,
 						debugout("Def.Fun",
-							translate.assign(
+							trans.assign(
 								level,
 								acc,
-								translate.makeClosure(level, fn_level, fn_label))));
+								trans.makeClosure(level, fn_level, fn_label))));
 				
 			}else{
 				Ty ty;
@@ -286,7 +280,7 @@ out(r){ assert(r.field[1] !is null); }body
 				//初期化式の結果を代入
 				return tuple(tenv.Unit,
 						debugout("Def.Var %s",
-							translate.assign(level, acc, ex)));
+							trans.assign(level, acc, ex)));
 			}
 		}
 	}
@@ -296,7 +290,7 @@ out(r){ assert(r.field[1] !is null); }body
 	tie(ty, ex) = trexp(n);
 	while( (n = n.next) !is null ){
 		tie(ty, x) = trexp(n);
-		ex = translate.sequence(ex, x);
+		ex = trans.sequence(ex, x);
 	}
 	return tuple(ty, ex);
 }
