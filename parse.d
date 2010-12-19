@@ -64,7 +64,7 @@ class AstNode
 	}
 	static AstNode Ident(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.IDENT);
-		n.sym = Symbol(t.s);
+		n.sym = newSymbol(t.s);
 		return n;
 	}
 	static AstNode Fun(ref Token t, AstNode prm, AstNode blk){

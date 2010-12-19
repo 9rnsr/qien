@@ -1,6 +1,7 @@
 ﻿module canon;
 
-import temp, tree;
+import sym;
+import tree;
 import typecons.tuple_match, typecons.tuple_tie;
 import std.traits;
 import std.typetuple : allSatisfy;
@@ -49,7 +50,7 @@ Tuple!(Stm, Exp[]) reorder(Exp[] el)
 		auto rest = el[1..$];
 		
 		if( CALL(_, _) = a ){
-			auto t = temp.newTemp();
+			auto t = newTemp();
 			return reorder(ESEQ(MOVE(TEMP(t), a), TEMP(t)) ~ rest);
 		}else{
 			Stm s1, s2;
@@ -59,7 +60,7 @@ Tuple!(Stm, Exp[]) reorder(Exp[] el)
 			if( commute(s2, e) ){
 				return tuple(seq(s1, s2), e~el);
 			}else{
-				auto t = temp.newTemp();
+				auto t = newTemp();
 				return tuple(seq(seq(s1, MOVE(TEMP(t), e)), s2), TEMP(t) ~ el);
 			}
 		}
@@ -186,12 +187,12 @@ unittest
 	auto t1 = newTemp();
 	auto t2 = newTemp();
 	
-	auto s1 = LABEL(temp.newLabel());
-	auto s2 = LABEL(temp.newLabel());
-	auto e1 = NAME(temp.newLabel());
-	auto e2 = NAME(temp.newLabel());
-	auto e3 = NAME(temp.newLabel());
-	auto e4 = NAME(temp.newLabel());
+	auto s1 = LABEL(newLabel());
+	auto s2 = LABEL(newLabel());
+	auto e1 = NAME(newLabel());
+	auto e2 = NAME(newLabel());
+	auto e3 = NAME(newLabel());
+	auto e4 = NAME(newLabel());
 	auto e1N = BIN(BinOp.ADD, MEM(TEMP(t1)), MEM(TEMP(t2)));
 	auto e2N = BIN(BinOp.ADD, MEM(TEMP(t1)), MEM(TEMP(t2)));
 	
@@ -247,9 +248,9 @@ unittest
 {
 	pp("unittest: canon");
 	
-	Stm s1_;	Stm s1 = LABEL(temp.newLabel());
-	Stm s2_;	Stm s2 = LABEL(temp.newLabel());
-	Exp e1_;	Exp e1 = NAME(temp.newLabel());
+	Stm s1_;	Stm s1 = LABEL(newLabel());
+	Stm s2_;	Stm s2 = LABEL(newLabel());
+	Exp e1_;	Exp e1 = NAME(newLabel());
 	
 	// 1
 	assert(do_exp(ESEQ(s1, ESEQ(s2, e1)))		== tuple(SEQ([s1, s2]), e1));

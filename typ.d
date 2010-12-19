@@ -89,7 +89,7 @@ class Ty
 }
 
 /// 
-class TyEnv
+class TypEnv
 {
 private:
 	static class Data
@@ -107,7 +107,7 @@ private:
 	}
 private:
 	Data	d;
-	TyEnv	parent;
+	TypEnv	parent;
 
 public:
 	this(){
@@ -124,7 +124,7 @@ public:
 		d.Unit	= App(d.TyconUnit, []);
 		this(d);
 	}
-	this(TyEnv p)
+	this(TypEnv p)
 	in{ assert(p !is null); }
 	body{
 		this(p.d);
@@ -430,10 +430,10 @@ Tuple!(T, U)[] zip(T,U)(T[] t, U[] u){
 //void main(){
 unittest{
 	bool res;
-	TyEnv tenv;
+	TypEnv tenv;
 	Ty t1, t2;
 	
-	{	tenv = new TyEnv();
+	{	tenv = new TypEnv();
 		t1 = tenv.Int;
 		t2 = tenv.Meta(tenv.newmetavar());
 		res = tenv.unify(t1, t2);
@@ -442,7 +442,7 @@ unittest{
 		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}
 	{
-		tenv = new TyEnv();
+		tenv = new TypEnv();
 		t1 = tenv.Arrow([tenv.Int], tenv.Int);
 		t2 = tenv.Meta(tenv.newmetavar());
 		res = tenv.unify(t1, t2);
@@ -450,7 +450,7 @@ unittest{
 		assert(t2.actty is t1);
 		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}
-	{	tenv = new TyEnv();
+	{	tenv = new TypEnv();
 		Ty al1, ar1;
 		Ty al2, ar2;
 		t1 = tenv.Arrow([al1=tenv.Int],  ar1=tenv.Int);
@@ -461,7 +461,7 @@ unittest{
 		assert(ar2.actty is ar1);
 		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}
-/+	{	tenv = new TyEnv();
+/+	{	tenv = new TypEnv();
 		auto xv = tenv.new_tyvars(1);
 		auto v = tenv.Var(xv[0]);
 		t1 = tenv.Poly(xv, tenv.Arrow([v], v));

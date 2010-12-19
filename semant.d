@@ -15,7 +15,7 @@ alias translate.Level	Level;
 /// 
 Ty semant(AstNode n)
 {
-	auto tenv = new TyEnv();
+	auto tenv = new TypEnv();
 	auto venv = new VarEnv();
 	
 	Ty ty;
@@ -55,7 +55,6 @@ class VarEnv
 		Access access;
 	}
 	
-	
 	Entry[Symbol] tbl;
 	
 	VarEnv parent;
@@ -76,11 +75,11 @@ class VarEnv
 			return true;
 		}
 	}
-	Entry* look(Symbol s){
+	Entry* opIn_r(Symbol s){
 		if( auto pentry = s in tbl ){
 			return pentry;
 		}else{
-			return parent ? parent.look(s) : null;
+			return parent ? (s in parent) : null;
 		}
 	}
 	
@@ -99,7 +98,7 @@ class VarEnv
 
 
 /// 
-Tuple!(Ty, Ex) transExp(Level level, TyEnv tenv, VarEnv venv, AstNode n)
+Tuple!(Ty, Ex) transExp(Level level, TypEnv tenv, VarEnv venv, AstNode n)
 out(r){ assert(r.field[1] !is null); }body
 {
 	const unify = &tenv.unify;	//短縮名
@@ -119,7 +118,7 @@ out(r){ assert(r.field[1] !is null); }body
 			return tuple(tenv.Str, Ex.init);
 		
 		case AstTag.IDENT:
-			if( auto entry = venv.look(n.sym) ){
+			if( auto entry = n.sym in venv ){
 				auto inst_t = tenv.instantiate(entry.ty);
 				debugout("id %s -> %s", n.sym, entry.ty);
 				debugout("   instantiate -> %s", inst_t);
@@ -215,10 +214,10 @@ out(r){ assert(r.field[1] !is null); }body
 			auto id = n.lhs;
 			if( n.rhs.tag == AstTag.FUN ){
 				auto fn = n.rhs;
-				scope fn_tenv = new TyEnv(tenv);
+				scope fn_tenv = new TypEnv(tenv);
 				scope fn_venv = new VarEnv(venv);
 				
-				auto fn_label = temp.newLabel();
+				auto fn_label = newLabel();
 				auto fn_level = translate.newLevel(level, fn_label, []);
 				
 				Ty[] tp;

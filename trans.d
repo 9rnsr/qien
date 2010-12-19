@@ -1,9 +1,6 @@
 ﻿module trans;
 
-import tree;
-import temp;
-
-import sym;
+import sym, tree;
 import debugs;
 import std.algorithm, std.array;
 
@@ -127,17 +124,19 @@ public:
 	/// Translateによる処理の結果として生成されるIR
 	class Ex
 	{
+		alias Stm delegate(Label t, Label f) GenCx;
+		
 	private:
 		enum Tag{ EX, NX, CX }
 		Tag tag;
 		union{
 			Exp ex;
 			Stm nx;
-			Stm delegate(Label t, Label f) cx;
+			GenCx cx;
 		}
-		this(Exp exp)								{ tag = Tag.EX; ex = exp; }
-		this(Stm stm)								{ tag = Tag.NX; nx = stm; }
-		this(Stm delegate(Label t, Label f) cnd)	{ tag = Tag.CX; cx = cnd; }
+		this(Exp exp)	{ tag = Tag.EX; ex = exp; }
+		this(Stm stm)	{ tag = Tag.NX; nx = stm; }
+		this(GenCx cnd)	{ tag = Tag.CX; cx = cnd; }
 	public:
 		string toString(){
 			final switch( tag ){

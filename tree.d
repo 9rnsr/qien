@@ -1,7 +1,5 @@
 ﻿module tree;
 
-import temp;
-
 import tok;
 import std.typecons;
 import std.conv;

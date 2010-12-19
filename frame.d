@@ -1,7 +1,6 @@
 ﻿module frame;
 
 static import tree;
-static import temp;
 
 import sym;
 import std.string;
@@ -70,14 +69,14 @@ class VmFrame
 	/**
 	 * 新しいFrameを生成する
 	 */
-	static VmFrame newFrame(temp.Label label, bool[] formals){
+	static VmFrame newFrame(Label label, bool[] formals){
 		return new VmFrame(label, formals);
 	}
 	
 	/**
 	 * 
 	 */
-	temp.Label name(){
+	Label name(){
 		return namelabel;
 	}
 	
@@ -101,8 +100,8 @@ class VmFrame
 	static tree.Exp frame_ptr;
 	static tree.Exp return_val;
 	static this(){
-		frame_ptr = tree.TEMP(temp.newTemp("FP"));
-		return_val = tree.TEMP(temp.newTemp("RV"));
+		frame_ptr = tree.TEMP(newTemp("FP"));
+		return_val = tree.TEMP(newTemp("RV"));
 	}
 	
 	tree.Stm procEntryExit1(tree.Stm stm){
@@ -132,13 +131,13 @@ class VmFrame
 		Tag tag;
 		union{
 			Tuple!(tree.Stm[], VmFrame)			p;
-			Tuple!(temp.Label, Const!string)	s;
+			Tuple!(Label, Const!string)	s;
 		}
 		this(tree.Stm[] body_stm, VmFrame frame){
 			tag = Tag.PROC;
 			p = tuple(body_stm, frame);
 		}
-		this(temp.Label label, Const!string str){
+		this(Label label, Const!string str){
 			tag = Tag.STR;
 			s = tuple(label, str);
 		}
@@ -154,13 +153,13 @@ class VmFrame
 	}
 
 private:
-	temp.Label namelabel;
+	Label namelabel;
 	Access[] acclist;
 	
 	static size_t wordSize = 4;
 	
 	
-	this(temp.Label label, bool[] escapes){
+	this(Label label, bool[] escapes){
 		namelabel = label;
 		foreach( esc; escapes ) allocLocal(esc);		//formalsを割り当て
 	}
