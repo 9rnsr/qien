@@ -24,8 +24,7 @@ public:
 	/**
 	 *
 	 */
-	string toString()       { return "#"~name; }
-	string toString() const { return (cast(const)this).toString(); }
+	string toString(){ return "#"~name; }
 }
 
 /**
