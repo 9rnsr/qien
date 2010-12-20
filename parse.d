@@ -30,9 +30,9 @@ class AstNode
 	AstTag	tag;
 	
 	union{
-		Const!IntT		i;			//INT
-		Const!RealT		r;			//REAL
-		Const!StrT		s;			//STR
+		Constant!IntT	i;			//INT
+		Constant!RealT	r;			//REAL
+		Constant!StrT	s;			//STR
 		Symbol			sym;		//IDENT
 		struct{AstNode	prm, blk;}	//FUN
 		struct{AstNode	lhs, rhs;}	//ADD,SUB,MUL,DIV,CALL,ASSIGN,DEF
@@ -49,17 +49,17 @@ class AstNode
 	
 	static AstNode Int(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.INT);
-		n.i = Const!IntT(t.i);
+		n.i = Constant!IntT(t.i);
 		return n;
 	}
 	static AstNode Real(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.REAL);
-		n.r = Const!RealT(t.r);
+		n.r = Constant!RealT(t.r);
 		return n;
 	}
 	static AstNode Str(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.STR);
-		n.s = Const!StrT(t.s);
+		n.s = Constant!StrT(t.s);
 		return n;
 	}
 	static AstNode Ident(ref Token t){

@@ -1,8 +1,7 @@
 ﻿module tree;
 
 import tok;
-import std.typecons;
-import std.conv;
+import std.conv, std.typecons;
 import debugs;
 import sym;		//alias名に対してtag_unionは上手く動作してくれない
 

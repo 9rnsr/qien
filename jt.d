@@ -9,12 +9,14 @@ import debugs;
 
 int main(string[] args)
 {
-	if( args.length == 1 ){
+	if (args.length == 1)
+	{
 		usage();
 		return 0;
 	}
 	
-	if( args.length == 2 ){
+	if (args.length == 2)
+	{
 		auto fname = args[1];
 		
 		auto t = T.toknize(fname);

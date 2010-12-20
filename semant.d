@@ -1,9 +1,8 @@
 ﻿module semant;
 
-public import parse, typ;
+import parse, typ;
 import trans;
 import debugs;
-
 import typecons.tuple_tie;
 
 /// 
@@ -21,24 +20,26 @@ Ty semant(AstNode n)
 	auto res = trans.getResult().reverse;	//表示の見易さのため反転
 	
 	debugout("semant.frag[] = ");
-	foreach( frag; res ){
+	foreach (frag; res){
 		frag.debugOut();
 		debugout("----");
 	}
 	return ty;
 }
 
-
 /// 
-class SemantException : Exception
+void error(ref FilePos pos, string msg)
 {
-	this(ref FilePos fpos, string msg){ super("SemanticError" ~ fpos.toString ~ ": " ~ msg); }
-}
+	static class SemantException : Exception
+	{
+		this(ref FilePos fpos, string msg)
+		{
+			super("SemanticError" ~ fpos.toString ~ ": " ~ msg);
+		}
+	}
 
-void error(ref FilePos pos, string msg){
 	throw new SemantException(pos, msg);
 }
-
 
 /// 
 class VarEnv
@@ -53,7 +54,9 @@ class VarEnv
 	
 	VarEnv parent;
 	
-	this(){
+	this()
+	{
+		// do nothing
 	}
 	this(VarEnv p)
 	in{ assert(p !is null); }
@@ -61,30 +64,33 @@ class VarEnv
 		parent = p;
 	}
 	
-	bool add(Symbol s, Access access, Ty t){
-		if( s in tbl ){
+	bool add(Symbol s, Access acc, Ty t)
+	{
+		if (s in tbl)
 			return false;
-		}else{
-			tbl[s] = Entry(t, access);
-			return true;
-		}
+		
+		tbl[s] = Entry(t, acc);
+		return true;
 	}
-	Entry* opIn_r(Symbol s){
-		if( auto pentry = s in tbl ){
+	Entry* opIn_r(Symbol s)
+	{
+		if (auto pentry = s in tbl)
 			return pentry;
-		}else{
+		else
 			return parent ? (s in parent) : null;
-		}
 	}
-	
-	string toString(){
+
+	string toString()
+	{
 		auto len = tbl.length;
 		auto str = "[";
-		if( parent ) str ~= parent.toString() ~ ", ";
-		foreach( sym, entry; tbl ){
-			--len;
-			if( len == 0 )	str ~= format("%s->%s", sym, entry.ty);
-			else			str ~= format("%s->%s, ", sym, entry.ty);
+		if (parent)
+			str ~= parent.toString() ~ ", ";
+		foreach (sym, entry; tbl)
+		{
+			str ~= format("%s->%s", sym, entry.ty);
+			if( --len > 0 )
+				str ~= ", ";
 		}
 		return str ~ "]";
 	}
@@ -97,29 +103,34 @@ out(r){ assert(r.field[1] !is null); }body
 {
 	const unify = &tenv.unify;	//短縮名
 	
-	Tuple!(Ty, Ex) trexp(AstNode n){
-		final switch( n.tag ){
+	Tuple!(Ty, Ex) trexp(AstNode n)
+	{
+		final switch (n.tag)
+		{
 		case AstTag.NOP:
 			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
 		
 		case AstTag.INT:
-			return tuple(tenv.Int, trans.constInt(n.i.val));
+			return tuple(tenv.Int, trans.immediate(n.i.val));
 		
 		case AstTag.REAL:
-			return tuple(tenv.Real, Ex.init);
+			return tuple(tenv.Real, trans.immediate(n.r.val));
 		
 		case AstTag.STR:
 			return tuple(tenv.Str, Ex.init);
 		
 		case AstTag.IDENT:
-			if( auto entry = n.sym in venv ){
+			if (auto entry = n.sym in venv)
+			{
 				auto inst_t = tenv.instantiate(entry.ty);
 				debugout("id %s -> %s", n.sym, entry.ty);
 				debugout("   instantiate -> %s", inst_t);
 				//debugout("   venv = %s", venv);
 				
 				return tuple(inst_t, debugout("Ident.Var %s", trans.getVar(level, entry.access)));
-			}else{
+			}
+			else
+			{
 				error(n.pos, n.sym.name ~ " undefined");
 			}
 		
@@ -132,13 +143,12 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
-			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
+			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, debugout("Add.Ex %s", trans.binAddInt(xl, xr)));
-			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
+			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
-			}else{
+			else
 				error(n.pos, "+ mismatch types");
-			}
 		
 		case AstTag.SUB:
 			Ty tl, tr;
@@ -146,13 +156,12 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
-			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
+			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binSubInt(xl, xr));
-			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
+			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
-			}else{
+			else
 				error(n.pos, "- mismatch types");
-			}
 		
 		case AstTag.MUL:
 			Ty tl, tr;
@@ -160,13 +169,12 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
-			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
+			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binMulInt(xl, xr));
-			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
+			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
-			}else{
+			else
 				error(n.pos, "* mismatch types");
-			}
 		
 		case AstTag.DIV:
 			Ty tl, tr;
@@ -174,26 +182,27 @@ out(r){ assert(r.field[1] !is null); }body
 			tie(tl, xl) = trexp(n.lhs);
 			tie(tr, xr) = trexp(n.rhs);
 			
-			if( unify(tl, tenv.Int) && unify(tr, tenv.Int) ){
+			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binDivInt(xl, xr));
-			}else if( unify(tl, tenv.Real) && unify(tr, tenv.Real) ){
+			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
-			}else{
+			else
 				error(n.pos, "/ mismatch types");
-			}
 		
 		case AstTag.CALL:
 			Ty tf, tr;  Ty[] ta;
 			Ex xf, xr;  Ex[] xa;
 			
 			tie(tf, xf) = trexp(n.lhs);
-			foreach( arg ; each(n.rhs) ){
+			foreach (arg ; each(n.rhs))
+			{
 				ta.length += 1;
 				xa.length += 1;
 				tie(ta[$-1], xa[$-1]) = trexp(arg);
 			}
 			tr = tenv.Meta(tenv.newmetavar());
-			if( !unify(tf, tenv.Arrow(ta, tr)) ){
+			if (!unify(tf, tenv.Arrow(ta, tr)))
+			{
 				debugout("type mismatch");
 				assert(0);
 			}
@@ -206,7 +215,8 @@ out(r){ assert(r.field[1] !is null); }body
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
-			if( n.rhs.tag == AstTag.FUN ){
+			if (n.rhs.tag == AstTag.FUN)
+			{
 				auto fn = n.rhs;
 				scope fn_tenv = new TypEnv(tenv);
 				scope fn_venv = new VarEnv(venv);
@@ -215,7 +225,8 @@ out(r){ assert(r.field[1] !is null); }body
 				auto fn_level = trans.newLevel(level, fn_label, []);
 				
 				Ty[] tp;
-				foreach( prm; each(fn.prm) ){
+				foreach (prm; each(fn.prm))
+				{
 					auto prm_acc = fn_level.allocLocal(true);	//常にescapeするとする
 					
 					auto t = fn_tenv.Meta(fn_tenv.newmetavar());
@@ -230,17 +241,14 @@ out(r){ assert(r.field[1] !is null); }body
 				Ty tb;
 				Ex xb;
 				tie(tb, xb) = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
-				if( !fn_tenv.unify(tr, tb) ){
-					debugout("return type mismatch in def-fun");
-					assert(0);
-				}
+				if (!fn_tenv.unify(tr, tb))
+					error(n.pos, "return type mismatch in def-fun");
 				
 				auto tf2 = fn_tenv.generalize(tf);
 				
 				auto acc = level.allocLocal(true);	//常にescapeするとする
-				if( !venv.add(id.sym, acc, tf2) ){
+				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
-				}
 				
 				debugout("fun tr = %s", tr);
 				debugout("    tf = %s", tf);
@@ -262,16 +270,20 @@ out(r){ assert(r.field[1] !is null); }body
 				Ty ty;
 				Ex ex;
 				tie(ty, ex) = trexp(n.rhs);
-				if( ty is tenv.Nil ) error(n.pos, "infer error...");
+				if (ty is tenv.Nil)
+					error(n.pos, "infer error...");
 				
 				auto acc = level.allocLocal(true);	//常にescapeするとする
 				
-				//if( used(id) ){//todo
-				if( true ){//todo
-					if( !venv.add(id.sym, acc, tenv.Poly([], ty)) )
+				//if (used(id) ){//todo
+				if (true)//todo
+				{
+					if (!venv.add(id.sym, acc, tenv.Poly([], ty)))
 						error(n.pos, id.toString ~ " is already defined");
-				}else{
-					if( !venv.add(id.sym, acc, tenv.generalize(ty)) )
+				}
+				else
+				{
+					if (!venv.add(id.sym, acc, tenv.generalize(ty)))
 						error(n.pos, id.toString ~ " is already defined");
 				}
 				debugout("var ty = %s", ty);
@@ -288,7 +300,8 @@ out(r){ assert(r.field[1] !is null); }body
 	Ty ty;
 	Ex ex, x;
 	tie(ty, ex) = trexp(n);
-	while( (n = n.next) !is null ){
+	while ((n = n.next) !is null)
+	{
 		tie(ty, x) = trexp(n);
 		ex = trans.sequence(ex, x);
 	}

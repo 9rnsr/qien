@@ -1,8 +1,7 @@
 ﻿module typ;
 
-import std.algorithm;
-import std.typecons;
 import debugs;
+import std.algorithm, std.typecons;
 
 
 alias ulong id_t;
@@ -10,80 +9,106 @@ alias id_t TyVar;	//struct TyVar	{ id_t v; alias v this; string toString(){retur
 alias id_t MetaVar;	//struct MetaVar	{ id_t v; alias v this; string toString(){return format("%s", v);} }
 
 
+enum TyconTag
+{
+	INT,
+	REAL,
+	STR,
+	UNIT,
+	ARROW,
+//	ARRAY,
+//	RECORD,
+	TYFUN,
+	UNIQ,
+}
+
 /// 
 class Tycon
 {
-	enum Tag{
-		INT,REAL,STR,UNIT,ARROW,
-	//	ARRAY,RECORD,
-		TYFUN,UNIQ
-	}
-	Tag tag;
+	TyconTag tag;
 	union{
 		//string[] fieldnames;
 		struct{ TyVar[] tprms; Ty tyfn; }	//TYFUN
 		struct{ Tycon tycon; id_t uniq; }	//UNIQ
 	}
 	
-	private this(Tag tag){
+	private this(TyconTag tag)
+	{
 		this.tag = tag;
 	}
-	bool opEquals(Tag tag) const{
+
+public:
+	bool opEquals(TyconTag tag) const
+	{
 		return this.tag == tag;
 	}
 	
-	string toString(){
-		final switch( tag ){
-		case Tag.INT:		return "Int";
-		case Tag.REAL:		return "Real";
-		case Tag.STR:		return "Str";
-		case Tag.UNIT:		return "Unit";
-		case Tag.ARROW:		return "Arrow";
-		case Tag.TYFUN:		return format("TyFun(%s,%s)", tprms, tyfn);
-		case Tag.UNIQ:		return format("Uniq(%s,%s)", tycon, uniq);
+	string toString()
+	{
+		final switch (tag) with(TyconTag)
+		{
+		case INT:		return "Int";
+		case REAL:		return "Real";
+		case STR:		return "Str";
+		case UNIT:		return "Unit";
+		case ARROW:		return "Arrow";
+		case TYFUN:		return format("TyFun(%s,%s)", tprms, tyfn);
+		case UNIQ:		return format("Uniq(%s,%s)", tycon, uniq);
 		}
 	}
+}
+
+enum TyTag
+{
+	NIL,
+	APP,		//Tyconと型引数を取って型を作る
+	VAR,		//generalizedされた型内に出現する型変数
+	POLY,		//多相型、型変数パラメータと定義本体を持つ
+	META,		//型推論中のメタ変数、推論後はacttyが有効な型を指す
+//	FIELD,
 }
 
 /// 
 class Ty
 {
-	enum Tag{
-		NIL,APP,VAR,POLY,META,//FIELD
-	}
-	Tag	tag;
+	TyTag	tag;
 	union{
-		struct{Tycon tycon; Ty[] targs;};	//APP
-		struct{TyVar tvnum;}				//VAR
-		struct{TyVar[] tvars; Ty polty;}	//POLY
-		struct{MetaVar mvnum; Ty actty;}	//META
+		struct{ Tycon tycon; Ty[] targs; };	//APP
+		struct{ TyVar tvnum; }				//VAR
+		struct{ TyVar[] tvars; Ty polty; }	//POLY
+		struct{ MetaVar mvnum; Ty actty; }	//META
 	}
 	
-	private this(Tag tag){
+	private this(TyTag tag)
+	{
 		this.tag = tag;
 	}
 	
-	bool opEquals(Tag tag) const{
+	bool opEquals(TyTag tag) const
+	{
 		return this.tag == tag;
 	}
 	
-	bool opIn_r(Ty t){		// tが内部に出現するか
+	bool opIn_r(Ty t)		// tが内部に出現するか
+	{
 	/+	final switch( tag ){
-		case Tag.NIL:
+		case TyTag.NIL:
 			return false;
-		case Tag.APP:
+		case TyTag.APP:
 			return false;
 		}+/
 		return false;
 	}
 	
-	string toString(){
-		final switch( tag ){
-		case Tag.NIL:	return "Nil";
-		case Tag.APP:	return format("App(%s,%s)", tycon, targs);
-		case Tag.VAR:	return format("Var(%s)", tvnum);
-		case Tag.POLY:	return format("Poly(%s, %s)", tvars, polty);
-		case Tag.META:	return actty ? actty.toString : format("Meta(%s)", mvnum);
+	string toString()
+	{
+		final switch (tag) with(TyTag)
+		{
+		case NIL:	return "Nil";
+		case APP:	return format("App(%s,%s)", tycon, targs);
+		case VAR:	return format("Var(%s)", tvnum);
+		case POLY:	return format("Poly(%s, %s)", tvars, polty);
+		case META:	return actty ? actty.toString : format("Meta(%s)", mvnum);
 		}
 	}
 }
@@ -110,14 +135,15 @@ private:
 	TypEnv	parent;
 
 public:
-	this(){
+	this()
+	{
 		auto d = new Data();
-		d.TyconInt		= new Tycon(Tycon.Tag.INT);
-		d.TyconReal		= new Tycon(Tycon.Tag.REAL);
-		d.TyconStr		= new Tycon(Tycon.Tag.STR);
-		d.TyconUnit		= new Tycon(Tycon.Tag.UNIT);
-		d.TyconArrow	= new Tycon(Tycon.Tag.ARROW);
-		d.Nil	= new Ty(Ty.Tag.NIL);
+		d.TyconInt		= new Tycon(TyconTag.INT);
+		d.TyconReal		= new Tycon(TyconTag.REAL);
+		d.TyconStr		= new Tycon(TyconTag.STR);
+		d.TyconUnit		= new Tycon(TyconTag.UNIT);
+		d.TyconArrow	= new Tycon(TyconTag.ARROW);
+		d.Nil	= new Ty(TyTag.NIL);
 		d.Int	= App(d.TyconInt , []);
 		d.Real	= App(d.TyconReal, []);
 		d.Str	= App(d.TyconStr , []);
@@ -130,12 +156,14 @@ public:
 		this(p.d);
 		parent = p;
 	}
-	private this(Data data){
+	private this(Data data)
+	{
 		d = data;
 	}
 	
-	Tycon Unique(Tycon tyc){		//環境の外部から使うのでTycon_prefixを付けない
-		auto u = new Tycon(Tycon.Tag.UNIQ);
+	Tycon Unique(Tycon tyc)		//環境の外部から使うのでTycon_prefixを付けない
+	{
+		auto u = new Tycon(TyconTag.UNIQ);
 		u.tycon = tyc;
 		u.uniq = d.uniq_count++;
 		return u;
@@ -184,142 +212,205 @@ public:
 	Ty Unit()				{ return d.Unit; }
 	Ty Arrow(Ty[] a, Ty b)	{ return App(d.TyconArrow, a~b); }
 	
-	Ty App(Tycon tycon, Ty[] targs){
-		auto t = new Ty(Ty.Tag.APP);
+	Ty App(Tycon tycon, Ty[] targs)
+	{
+		auto t = new Ty(TyTag.APP);
 		t.tycon = tycon;
 		t.targs = targs;
 		return t;
 	}
-	Ty Var(TyVar n){
-		auto t = new Ty(Ty.Tag.VAR);
+	Ty Var(TyVar n)
+	{
+		auto t = new Ty(TyTag.VAR);
 		t.tvnum = n;
 		return t;
 	}
-	Ty Poly(TyVar[] tvars, Ty polty){
-		auto t = new Ty(Ty.Tag.POLY);
+	Ty Poly(TyVar[] tvars, Ty polty)
+	{
+		auto t = new Ty(TyTag.POLY);
 		t.tvars = tvars;
 		t.polty = polty;
 		return t;
 	}
-	Ty Meta(MetaVar n){
-		auto t = new Ty(Ty.Tag.META);
+	Ty Meta(MetaVar n)
+	{
+		auto t = new Ty(TyTag.META);
 		t.mvnum = n;
 		return t;
 	}
 
 public:
 	/// t1とt2を単一化する
-	bool unify(Ty t1, Ty t2){
+	bool unify(Ty t1, Ty t2)
+	{
 		auto ty12 = tie(t1, t2);
 		
-		if( (ty12 == tuple(Ty.Tag.APP, Ty.Tag.APP)) && (t1.targs.length == t2.targs.length) ){
+		if ((ty12 == tuple(TyTag.APP, TyTag.APP)) && (t1.targs.length == t2.targs.length))
+		{
 			auto tyc12 = tie(t1.tycon, t2.tycon);
 			
-			if( tyc12 == tuple(Tycon.Tag.INT,	Tycon.Tag.INT)
-			 || tyc12 == tuple(Tycon.Tag.REAL,	Tycon.Tag.REAL)
-			 || tyc12 == tuple(Tycon.Tag.STR,	Tycon.Tag.STR)
-			 || tyc12 == tuple(Tycon.Tag.UNIT,	Tycon.Tag.UNIT)
-			 || tyc12 == tuple(Tycon.Tag.ARROW,	Tycon.Tag.ARROW)
-		//	 || tyc12 == tuple(Tycon.Tag.ARRAY,	Tycon.Tag.ARRAY)
-		//	 || tyc12 == tuple(Tycon.Tag.RECORD,Tycon.Tag.RECORD)
+			if( tyc12 == tuple(TyconTag.INT,	TyconTag.INT)
+			 || tyc12 == tuple(TyconTag.REAL,	TyconTag.REAL)
+			 || tyc12 == tuple(TyconTag.STR,	TyconTag.STR)
+			 || tyc12 == tuple(TyconTag.UNIT,	TyconTag.UNIT)
+			 || tyc12 == tuple(TyconTag.ARROW,	TyconTag.ARROW)
+		//	 || tyc12 == tuple(TyconTag.ARRAY,	TyconTag.ARRAY)
+		//	 || tyc12 == tuple(TyconTag.RECORD,	TyconTag.RECORD)
 			){
 				auto result = true;
-				foreach( t; zip(t1.targs, t2.targs) ){
+				foreach (t; zip(t1.targs, t2.targs))
+				{
 					result = result && unify(t.field[0], t.field[1]);
-					if( !result ) break;
+					if (!result) break;
 				}
 				return result;
 				
-			}else if( t1.tycon == Tycon.Tag.TYFUN ){
+			}
+			else if (t1.tycon == TyconTag.TYFUN)
+			{
 				return unify(subst(t1.tycon.tyfn, makeSubstEnv(t1.tycon.tprms, t1.targs)), t2);
-			}else if( t2.tycon == Tycon.Tag.TYFUN ){
+			}
+			else if (t2.tycon == TyconTag.TYFUN)
+			{
 				return unify(t1, subst(t2.tycon.tyfn, makeSubstEnv(t2.tycon.tprms, t2.targs)));
-			}else if( tyc12 == tuple(Tycon.Tag.UNIQ, Tycon.Tag.UNIQ) ){
-				if( t1.tycon.uniq == t2.tycon.uniq ){
+			}
+			else if (tyc12 == tuple(TyconTag.UNIQ, TyconTag.UNIQ))
+			{
+				if(t1.tycon.uniq == t2.tycon.uniq)
+				{
 					auto result = true;
-					foreach( a; zip(t1.targs, t2.targs) ){
+					foreach (a; zip(t1.targs, t2.targs))
+					{
 						result = result && unify(a.field[0], a.field[1]);
-						if( !result ) break;
+						if (!result) break;
 					}
 					return result;
-				}else{
+				}
+				else
+				{
 					return false;
 				}
-			}else{
+			}
+			else
+			{
 				return false;
 			}
 		
-		}else if( ty12 == tuple(Ty.Tag.POLY, Ty.Tag.POLY) ){
-			if( t1.tvars.length != t2.tvars.length ) return false;
+		}
+		else if (ty12 == tuple(TyTag.POLY, TyTag.POLY))
+		{
+			if (t1.tvars.length != t2.tvars.length)
+				return false;
 			auto vars = new Ty[t2.tvars.length];
-			foreach( i,ref v; vars ) v = Var(t2.tvars[i]);
+			foreach (i,ref v; vars)
+				v = Var(t2.tvars[i]);
 			return unify(t1.polty, subst(t2.polty, makeSubstEnv(t1.tvars, vars)));
 		
-		}else if( ty12 == tuple(Ty.Tag.VAR, Ty.Tag.VAR) ){
+		}
+		else if (ty12 == tuple(TyTag.VAR, TyTag.VAR))
+		{
 			return t1.tvnum == t2.tvnum;
-		
-		}else if( t1 == Ty.Tag.NIL || t2 == Ty.Tag.NIL ){
+		}
+		else if (t1 == TyTag.NIL || t2 == TyTag.NIL)
+		{
 			return true;//?
-		}else{
-			if( t1 == Ty.Tag.META ){
-				if( t1.actty ){
+		}
+		else
+		{
+			if (t1 == TyTag.META)
+			{
+				if (t1.actty)
+				{
 					return unify(t1.actty, t2);
-				}else if( t2 == Ty.Tag.APP && t2.tycon == Tycon.Tag.TYFUN ){
+				}
+				else if (t2 == TyTag.APP && t2.tycon == TyconTag.TYFUN)
+				{
 					return unify(t1, subst(t2.tycon.tyfn, makeSubstEnv(t2.tycon.tprms, t2.targs)));
-				}else if( (t2 == Ty.Tag.META) && t2.actty ){
+				}
+				else if ((t2 == TyTag.META) && t2.actty)
+				{
 					return unify(t1, t2.actty);
-				}else if( (t2 == Ty.Tag.META) && (t1.mvnum == t2.mvnum) ){
+				}
+				else if ((t2 == TyTag.META) && (t1.mvnum == t2.mvnum))
+				{
 				//	debugout("  t1=%s#%s, t2=%s#%s", t1.mvnum, t1, t2.mvnum, t2);
 					return true;
-				}else if( t1 in t2 ){
+				}
+				else if (t1 in t2)
+				{
 					return false;
-				}else{
+				}
+				else
+				{
 					t1.actty = t2;
 					return true;
 				}
-			}else if( t2 == Ty.Tag.META ){
+			}
+			else if (t2 == TyTag.META)
+			{
 				return unify(t2, t1);
-			}else{
+			}
+			else
+			{
 				return false;
 			}
 		}
 	}
 
 	/// tyのUnique/Metaを展開し、実際の型を取り出す
-	Ty expand(Ty ty){
-		if( ty == Ty.Tag.APP ){
-			if( ty.tycon == Tycon.Tag.TYFUN ){
+	Ty expand(Ty ty)
+	{
+		if (ty == TyTag.APP)
+		{
+			if (ty.tycon == TyconTag.TYFUN)
+			{
 				return expand(subst(ty.tycon.tyfn, makeSubstEnv(ty.tycon.tprms, ty.targs)));
-			}else if( ty.tycon == Tycon.Tag.UNIQ ){
+			}
+			else if (ty.tycon == TyconTag.UNIQ)
+			{
 				return expand(App(ty.tycon, ty.targs));
-			}else{
+			}
+			else
+			{
 				return ty;
 			}
-		}else if( ty == Ty.Tag.META ){
+		}
+		else if (ty == TyTag.META)
+		{
 			return ty.actty ? expand(ty.actty) : ty;
-		}else{
+		}
+		else
+		{
 			return ty;
 		}
 	}
 
 	/// tを汎化する
-	Ty generalize(Ty t){
+	Ty generalize(Ty t)
+	{
 		// tの構造を書き換える
 		
 		Ty[MetaVar]	meta_ty;
 		TyVar[]		tyvars;
 		
-		Ty g(Ty t){
-			final switch( t.tag ){
-			case Ty.Tag.META:
+		Ty g(Ty t)
+		{
+			final switch (t.tag)
+			{
+			case TyTag.META:
 				//debugout(" %s", t);
-				if( t.actty ){
+				if (t.actty)
+				{
 					//debugout(" ->actty = %s", t.actty);
 					return g(t.actty);
-				}else if( auto pt = t.mvnum in meta_ty ){
+				}
+				else if (auto pt = t.mvnum in meta_ty)
+				{
 					//debugout(" ->*pt = %s", *pt);
 					return *pt;
-				}else{
+				}
+				else
+				{
 					auto v = newtyvar();
 					tyvars ~= v;
 					auto ty = Var(v);
@@ -327,20 +418,24 @@ public:
 					//debugout(" ->newtyvar = %s", ty);
 					return ty;;
 				}
-			case Ty.Tag.NIL:
+			case TyTag.NIL:
 				return Nil;
-			case Ty.Tag.APP:
-				if( t.tycon == Tycon.Tag.TYFUN ){
+			case TyTag.APP:
+				if (t.tycon == TyconTag.TYFUN)
+				{
 					return g(subst(t.tycon.tyfn, makeSubstEnv(t.tycon.tprms, t.targs)));
-				}else{
+				}
+				else
+				{
 					//debugout("g, App(_, ...), t=%s", t);
-					foreach( ref a; t.targs ) a = g(a);
+					foreach (ref a; t.targs)
+						a = g(a);
 					return t;
 				}
-			case Ty.Tag.POLY:
+			case TyTag.POLY:
 				t.polty = g(t.polty);
 				return t;
-			case Ty.Tag.VAR:
+			case TyTag.VAR:
 				return t;
 			}
 		}
@@ -350,14 +445,19 @@ public:
 	}
 	
 	/// tを実体化する
-	Ty instantiate(Ty t){
-		if( t.tag == Ty.Tag.POLY ){
+	Ty instantiate(Ty t)
+	{
+		if (t.tag == TyTag.POLY)
+		{
 			auto ms = new Ty[t.tvars.length];
-			foreach( ref m; ms ) m = Meta(newmetavar());
+			foreach (ref m; ms)
+				m = Meta(newmetavar());
 			//debugout(" instantiate t.tvars = [%s]", t.tvars);
 			//debugout(" instantiate ms = [%s]", ms);
 			return subst(t.polty, makeSubstEnv(t.tvars, ms));
-		}else{
+		}
+		else
+		{
 			return t;
 		}
 	}
@@ -366,33 +466,37 @@ public:
 	in{ assert(vs.length == ts.length); }
 	body{
 		typeof(return) result;
-		for( size_t i=0; i<vs.length; ++i ){
+		foreach (i; 0 .. vs.length)
 			result[vs[i]] = ts[i];
-		}
 		return result;
 	}
 	
 	/// tの中の型変数(Var)にenv内の定義から代入する
-	Ty subst(Ty t, Ty[TyVar] env){
-		final switch( t.tag ){
-		case Ty.Tag.VAR:
-			if( auto pt = t.tvnum in env ){
+	Ty subst(Ty t, Ty[TyVar] env)
+	{
+		final switch (t.tag)
+		{
+		case TyTag.VAR:
+			if (auto pt = t.tvnum in env)
 				return *pt;
-			}else{
+			else
 				return t;
-			}
-		case Ty.Tag.NIL:
+		case TyTag.NIL:
 			return Nil;
-		case Ty.Tag.APP:
+		case TyTag.APP:
 			auto args = t.targs;
-			if( t.tycon == Tycon.Tag.TYFUN ){
+			if (t.tycon == TyconTag.TYFUN)
+			{
 				return subst(subst(t.tycon.tyfn, makeSubstEnv(t.tycon.tprms, args)), env);
-			}else{
+			}
+			else
+			{
 				auto subst2_res = new Ty[args.length];
-				foreach( i,ref e ; subst2_res ) e = subst(args[i], env);
+				foreach (i,ref e ; subst2_res)
+					e = subst(args[i], env);
 				return App(t.tycon, subst2_res);
 			}
-		case Ty.Tag.POLY:
+		case TyTag.POLY:
 		/+	auto ts = new Ty   [t.tvars.length];
 			auto vs = new TyVar[t.tvars.length];
 			foreach( i,x ; ts ){
@@ -403,7 +507,7 @@ public:
 			return Poly(vs, subst(u_, env));+/
 			return Poly(t.tvars, subst(t.polty, env));	//t.tvarsはenv内に現れないことが前提
 		
-		case Ty.Tag.META:
+		case TyTag.META:
 			return t.actty ? subst(t.actty, env) : t;
 		}
 	}
@@ -412,23 +516,30 @@ public:
 
 
 
-Tuple!(Ty.Tag, Ty.Tag) tie(Ty t1, Ty t2){
+Tuple!(TyTag, TyTag) tie(Ty t1, Ty t2)
+{
 	return tuple(t1.tag, t2.tag);
 }
-Tuple!(Tycon.Tag, Tycon.Tag) tie(Tycon tc1, Tycon tc2){
+
+Tuple!(TyconTag, TyconTag) tie(Tycon tc1, Tycon tc2)
+{
 	return tuple(tc1.tag, tc2.tag);
 }
-Tuple!(T, U)[] zip(T,U)(T[] t, U[] u){
+
+Tuple!(T, U)[] zip(T,U)(T[] t, U[] u)
+{
 	assert(t.length == u.length);
 	auto z = new Tuple!(T, U)[min(t.length, u.length)];
-	foreach( i,e ; z ) z[i] = tuple(t[i], u[i]);
+	foreach (i,e ; z)
+		z[i] = tuple(t[i], u[i]);
 	return z;
 }
 
 
 
 //void main(){
-unittest{
+unittest
+{
 	bool res;
 	TypEnv tenv;
 	Ty t1, t2;
@@ -441,8 +552,7 @@ unittest{
 		assert(t2.actty is t1);
 		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}
-	{
-		tenv = new TypEnv();
+	{	tenv = new TypEnv();
 		t1 = tenv.Arrow([tenv.Int], tenv.Int);
 		t2 = tenv.Meta(tenv.newmetavar());
 		res = tenv.unify(t1, t2);

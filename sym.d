@@ -1,7 +1,7 @@
 ﻿module sym;
 
 public import tok;
-import std.conv;
+import std.conv, std.string;
 
 
 /**
@@ -35,28 +35,31 @@ public:
  */
 Symbol newSymbol(string name=null)
 {
-	if( !name.length ){
+	if (!name.length)
+	{
 		//無名シンボル用の特殊処理
 		Symbol.anonymous_sym_count++;
 		name = "__anon" ~ to!string(Symbol.anonymous_sym_count);
-	}else if( name.length>=6 && name[0..6]=="__anon" ){
+	}
+	else if (name.length>=6 && name[0..6]=="__anon")
+	{
 		//無名シンボル用のPrefixで始まる名前は確保できない
 		assert(0);
 	}
-	if( auto sym = name in Symbol.internTbl ){
+	
+	if (auto sym = name in Symbol.internTbl)
 		return *sym;
-	}else{
+	else
 		return Symbol.internTbl[name] = new Symbol(name);
-	}
 }
 
 /**
  * リテラル値毎に一意なオブジェクトを生成するクラス、Poolも兼ねる
  */
-class Const(T)
+class Constant(T)
 {
 private:
-	static Const[T] pool;
+	static Constant[T] pool;
 	
 	this(ref T v){ val = v; }
 
@@ -64,12 +67,12 @@ public:
 	/**
 	 * リテラル値に対応するオブジェクトを返す
 	 */
-	static Const opCall(ref T v){
-		if( auto c = v in pool ){
+	static Constant opCall(ref T v)
+	{
+		if (auto c = v in pool)
 			return *c;
-		}else{
-			return pool[v] = new Const(v);
-		}
+		else
+			return pool[v] = new Constant(v);
 	}
 	
 	/**
@@ -83,37 +86,41 @@ public:
  */
 class Temp
 {
+private:
 	static uniq_temp_count = 0;
 	
 	int num;
 	string name;
-	this(){
+	this(string s=null)
+	{
 		num = uniq_temp_count++;
-	}
-	this(string s){
-		this();
 		name = s;
 	}
-	
-	string toString(){
-		if( name ) return "$"~to!string(num)~":"~name;
-		return "$"~to!string(num);
+
+public:
+	string toString()
+	{
+		if (name)
+			return format("$%s:%s", num, name);
+		else
+			return format("$%s", num);
 	}
 }
 
-Temp newTemp(){
-	return new Temp();
-}
-Temp newTemp(string name){
+Temp newTemp(string name=null)
+{
 	return new Temp(name);
 }
 
 //class Label:Symbol{}
 alias Symbol Label;	//無名シンボル==ラベル
 
-Label newLabel(){
+Label newLabel()
+{
 	return newSymbol();
 }
-Label namedLabel(string name){
+
+Label namedLabel(string name)
+{
 	return newSymbol(name);
 }
