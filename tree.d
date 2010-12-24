@@ -1,11 +1,10 @@
 ﻿module tree;
 
 import tok;
+import sym;		//alias名に対してtag_unionは上手く動作してくれない
+import typecons.tagunion;
 import std.conv, std.typecons;
 import debugs;
-import sym;		//alias名に対してtag_unionは上手く動作してくれない
-
-import typecons.tag_union;
 
 
 enum BinOp
@@ -79,7 +78,7 @@ public:
 		return false;
 	}
 }
-mixin(Exp.Tycons!());
+mixin Exp.tycons;
 
 class Stm
 {
@@ -125,4 +124,4 @@ public:
 		return false;
 	}
 }
-mixin(Stm.Tycons!());
+mixin Stm.tycons;

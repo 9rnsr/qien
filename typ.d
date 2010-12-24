@@ -243,11 +243,13 @@ public:
 	/// t1とt2を単一化する
 	bool unify(Ty t1, Ty t2)
 	{
-		auto ty12 = tie(t1, t2);
+		auto ty12 = bind(t1, t2);
+		//auto ty12 = tuple(t1, t2);
 		
 		if ((ty12 == tuple(TyTag.APP, TyTag.APP)) && (t1.targs.length == t2.targs.length))
 		{
-			auto tyc12 = tie(t1.tycon, t2.tycon);
+			auto tyc12 = bind(t1.tycon, t2.tycon);
+			//auto tyc12 = tuple(t1.tycon, t2.tycon);
 			
 			if( tyc12 == tuple(TyconTag.INT,	TyconTag.INT)
 			 || tyc12 == tuple(TyconTag.REAL,	TyconTag.REAL)
@@ -514,17 +516,17 @@ public:
 
 }
 
-
-
-Tuple!(TyTag, TyTag) tie(Ty t1, Ty t2)
+//+
+Tuple!(TyTag, TyTag) bind(Ty t1, Ty t2)
 {
 	return tuple(t1.tag, t2.tag);
 }
 
-Tuple!(TyconTag, TyconTag) tie(Tycon tc1, Tycon tc2)
+Tuple!(TyconTag, TyconTag) bind(Tycon tc1, Tycon tc2)
 {
 	return tuple(tc1.tag, tc2.tag);
 }
+// +/
 
 Tuple!(T, U)[] zip(T,U)(T[] t, U[] u)
 {

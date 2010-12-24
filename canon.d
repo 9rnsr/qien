@@ -2,22 +2,23 @@
 
 import sym;
 import tree;
-import typecons.tuple_match, typecons.tuple_tie;
+import typecons.match;
+import std.typecons;
 import std.traits;
 import std.typetuple : allSatisfy;
-
 import debugs;
 
+//debug = canon;
 
 Stm[] linearize(Stm s)
 {
-	Stm[] linear(Stm s, Stm[] l){
+	Stm[] linear(Stm s, Stm[] l)
+	{
 		Stm[] sl;
-		if( SEQ(&sl) = s ){
-			return linear(sl[0],linear(sl[1],l));
-	    }else{
-			return s~l;
-		}
+		if (SEQ[&sl] <<= s)
+			return linear(sl[0], linear(sl[1], l));
+	    else
+			return s ~ l;
 	}
 	return linear(do_stm(s), []);
 }
@@ -26,40 +27,45 @@ Stm[] linearize(Stm s)
 
 Stm seq(Stm x, Stm y)
 {
-	if( EXP(VINT(_)) = x ) return y;
-	if( EXP(VINT(_)) = y ) return x;
+	if (EXP[VINT[_]] <<= x) return y;
+	if (EXP[VINT[_]] <<= y) return x;
 	return SEQ([x,y]);
 }
 
 bool commute(Stm s, Exp e)
 {
-	if( EXP(VINT(_)) = s ) return true;
-	if( NAME(_) = e ) return true;
-	if( VINT(_) = e ) return true;
-	else	return false;
+	if (EXP[VINT[_]] <<= s) return true;
+	if (NAME[_] <<= e) return true;
+	if (VINT[_] <<= e) return true;
+	return false;
 }
 
 Tuple!(Stm, Exp[]) reorder(Exp[] el)
 {
-	auto nop = EXP(VINT(0L));
+	auto nop = EXP(VINT(0));
 
-	if( el.length == 0 ){
+	if (el.length == 0)
 		return tuple(nop, (Exp[]).init);
-	}else{
+	else
+	{
 		auto a = el[0];
 		auto rest = el[1..$];
 		
-		if( CALL(_, _) = a ){
+		if (CALL[_,_] <<= a)
+		{
 			auto t = newTemp();
 			return reorder(ESEQ(MOVE(TEMP(t), a), TEMP(t)) ~ rest);
-		}else{
+		}
+		else
+		{
 			Stm s1, s2;
 			Exp e;
-			tie(s1, e) = do_exp(a);
-			tie(s2, el) = reorder(rest);
-			if( commute(s2, e) ){
+			tie[s1, e] <<= do_exp(a);
+			tie[s2, el] <<= reorder(rest);
+			if (commute(s2, e))
 				return tuple(seq(s1, s2), e~el);
-			}else{
+			else
+			{
 				auto t = newTemp();
 				return tuple(seq(seq(s1, MOVE(TEMP(t), e)), s2), TEMP(t) ~ el);
 			}
@@ -71,7 +77,7 @@ Tuple!(Stm, Exp) reorder_exp(EL, BLD)(EL el_, BLD build)
 {
 	Stm   s;
 	Exp[] el;
-	tie(s, el) = reorder(cast(Exp[])el_);
+	tie[s, el] <<= reorder(cast(Exp[])el_);
 	return tuple(s, callBuild(el, build));
 }
 
@@ -79,7 +85,7 @@ Stm reorder_stm(EL, BLD)(EL el_, BLD build)
 {
 	Stm   s;
 	Exp[] el;
-	tie(s, el) = reorder(cast(Exp[])el_);
+	tie[s, el] <<= reorder(cast(Exp[])el_);
 	return seq(s, callBuild(el, build));
 }
 
@@ -88,19 +94,20 @@ private{
 	R callBuild(R, TE...)(Exp[] el, R delegate(TE) build)
 	{
 		static assert(TE.length>=1);
-		static if( allSatisfy!(isExp, TE[0..$-1], Exp) && is(TE[$-1] == Exp[]) ){
-			static if( TE.length == 1 )	return build(el[0..$]);
-			static if( TE.length == 2 )	return build(el[0], el[1..$]);
-			static if( TE.length >= 3 ) static assert(0);
+		static if (allSatisfy!(isExp, TE[0..$-1], Exp) && is(TE[$-1] == Exp[]))
+		{
+			static if (TE.length == 1) return build(el[0..$]);
+			static if (TE.length == 2) return build(el[0], el[1..$]);
+			static if (TE.length >= 3) static assert(0);
 		}
-		else static if( allSatisfy!(isExp, TE[0..$]) ){
-			static if( TE.length == 1 )	return build(el[0]);
-			static if( TE.length == 2 )	return build(el[0], el[1]);
-			static if( TE.length >= 3 ) static assert(0);
+		else static if (allSatisfy!(isExp, TE[0..$]))
+		{
+			static if (TE.length == 1) return build(el[0]);
+			static if (TE.length == 2) return build(el[0], el[1]);
+			static if (TE.length >= 3) static assert(0);
 		}
-		else{
+		else
 			static assert(0);
-		}
 	}
 }
 
@@ -114,18 +121,18 @@ Tuple!(Stm, Exp) do_exp(Exp e)
 	alias Exp E;
 	
 	return match(e,
-		BIN(&op,&a,&b),{
+		BIN[&op,&a,&b],{
 			return reorder_exp([a,b], (E a, E b){ return BIN(op,a,b); });
 		},
-		MEM(&a),{
+		MEM[&a],{
 			return reorder_exp([a], (E a){ return MEM(a); });
 		},
-		ESEQ(&s,&e),{
+		ESEQ[&s,&e],{
 			auto s0 = do_stm(s);
-			tie(s, e) = do_exp(e);
+			tie[s, e] <<= do_exp(e);
 			return tuple(seq(s0, s), e);
 		},
-		CALL(&e,&el),{
+		CALL[&e,&el],{
 			return reorder_exp(e~el, (E e, E[] el){ return CALL(e,el); });
 		},
 		_,{
@@ -147,31 +154,31 @@ Stm do_stm(Stm s)
 	alias Exp E;
 	
 	return match(s,
-		MOVE(TEMP(&r),CALL(&e,&el)),{
+		MOVE[TEMP[&r],CALL[&e,&el]],{
 			return reorder_stm(e~el, (E e, E[] el){ return MOVE(TEMP(r),CALL(e,el)); });
 		},
-		MOVE(TEMP(&r), &b),{
+		MOVE[TEMP[&r], &b],{
 			return reorder_stm([b], (E e){ return MOVE(TEMP(r), e); });
 		},
-		MOVE(MEM(&e), &b),{
+		MOVE[MEM[&e], &b],{
 			return reorder_stm([e,b], (E e, E b){ return MOVE(MEM(e), b); });
 		},
-		MOVE(ESEQ(&s,&e),&b),{
+		MOVE[ESEQ[&s,&e],&b],{
 			return do_stm(seq(s,MOVE(e,b)));
 		},
-		EXP(CALL(&e,&el)),{
+		EXP[CALL[&e,&el]],{
 			return reorder_stm(e~el, (E e, E[] el){ return EXP(CALL(e,el)); });
 		},
-		EXP(&e),{
+		EXP[&e],{
 			return reorder_stm([e], (E e){ return EXP(e); });
 		},
-		JUMP(&e, &ll),{
+		JUMP[&e, &ll],{
 			return reorder_stm([e], (E e){ return JUMP(e, ll); });
 		},
-		CJUMP(&rop,&a,&b,&t,&f),{
+		CJUMP[&rop,&a,&b,&t,&f],{
 			return reorder_stm([a,b], (E a, E b){ return CJUMP(rop,a,b,t,f); });
 		},
-		SEQ(&sl),{
+		SEQ[&sl],{
 			return seq(do_stm(sl[0]), do_stm(sl[1]));
 		},
 		_,{
@@ -182,8 +189,12 @@ Stm do_stm(Stm s)
 }
 
 // ex 8.1
+debug(canon)
 unittest
 {
+	writefln("unittest @ %s:%s", __FILE__, __LINE__);
+	scope(success) writefln("unittest succeeded @ %s:%s", __FILE__, __LINE__);
+
 	auto t1 = newTemp();
 	auto t2 = newTemp();
 	
@@ -246,7 +257,8 @@ unittest
 
 unittest
 {
-	pp("unittest: canon");
+	writefln("unittest @ %s:%s", __FILE__, __LINE__);
+	scope(success) writefln("unittest succeeded @ %s:%s", __FILE__, __LINE__);
 	
 	Stm s1_;	Stm s1 = LABEL(newLabel());
 	Stm s2_;	Stm s2 = LABEL(newLabel());

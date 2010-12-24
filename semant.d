@@ -3,7 +3,7 @@
 import parse, typ;
 import trans;
 import debugs;
-import typecons.tuple_tie;
+import typecons.match, std.typecons;
 
 /// 
 Ty semant(AstNode n)
@@ -13,7 +13,7 @@ Ty semant(AstNode n)
 	
 	Ty ty;
 	Ex ex;
-	tie(ty, ex) = transExp(trans.outermost, tenv, venv, n);
+	tie[ty, ex] <<= transExp(trans.outermost, tenv, venv, n);
 	
 	trans.procEntryExit(trans.outermost, ex);
 	
@@ -140,8 +140,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.ADD:
 			Ty tl, tr;
 			Ex xl, xr;
-			tie(tl, xl) = trexp(n.lhs);
-			tie(tr, xr) = trexp(n.rhs);
+			tie[tl, xl] <<= trexp(n.lhs);
+			tie[tr, xr] <<= trexp(n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, debugout("Add.Ex %s", trans.binAddInt(xl, xr)));
@@ -153,8 +153,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.SUB:
 			Ty tl, tr;
 			Ex xl, xr;
-			tie(tl, xl) = trexp(n.lhs);
-			tie(tr, xr) = trexp(n.rhs);
+			tie[tl, xl] <<= trexp(n.lhs);
+			tie[tr, xr] <<= trexp(n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binSubInt(xl, xr));
@@ -166,8 +166,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.MUL:
 			Ty tl, tr;
 			Ex xl, xr;
-			tie(tl, xl) = trexp(n.lhs);
-			tie(tr, xr) = trexp(n.rhs);
+			tie[tl, xl] <<= trexp(n.lhs);
+			tie[tr, xr] <<= trexp(n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binMulInt(xl, xr));
@@ -179,8 +179,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.DIV:
 			Ty tl, tr;
 			Ex xl, xr;
-			tie(tl, xl) = trexp(n.lhs);
-			tie(tr, xr) = trexp(n.rhs);
+			tie[tl, xl] <<= trexp(n.lhs);
+			tie[tr, xr] <<= trexp(n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binDivInt(xl, xr));
@@ -193,12 +193,12 @@ out(r){ assert(r.field[1] !is null); }body
 			Ty tf, tr;  Ty[] ta;
 			Ex xf, xr;  Ex[] xa;
 			
-			tie(tf, xf) = trexp(n.lhs);
+			tie[tf, xf] <<= trexp(n.lhs);
 			foreach (arg ; each(n.rhs))
 			{
 				ta.length += 1;
 				xa.length += 1;
-				tie(ta[$-1], xa[$-1]) = trexp(arg);
+				tie[ta[$-1], xa[$-1]] <<= trexp(arg);
 			}
 			tr = tenv.Meta(tenv.newmetavar());
 			if (!unify(tf, tenv.Arrow(ta, tr)))
@@ -240,7 +240,7 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				Ty tb;
 				Ex xb;
-				tie(tb, xb) = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
+				tie[tb, xb] <<= transExp(fn_level, fn_tenv, fn_venv, fn.blk);
 				if (!fn_tenv.unify(tr, tb))
 					error(n.pos, "return type mismatch in def-fun");
 				
@@ -265,11 +265,12 @@ out(r){ assert(r.field[1] !is null); }body
 								level,
 								acc,
 								trans.makeClosure(level, fn_level, fn_label))));
-				
-			}else{
+			}
+			else
+			{
 				Ty ty;
 				Ex ex;
-				tie(ty, ex) = trexp(n.rhs);
+				tie[ty, ex] <<= trexp(n.rhs);
 				if (ty is tenv.Nil)
 					error(n.pos, "infer error...");
 				
@@ -299,10 +300,10 @@ out(r){ assert(r.field[1] !is null); }body
 	
 	Ty ty;
 	Ex ex, x;
-	tie(ty, ex) = trexp(n);
+	tie[ty, ex] <<= trexp(n);
 	while ((n = n.next) !is null)
 	{
-		tie(ty, x) = trexp(n);
+		tie[ty, x] <<= trexp(n);
 		ex = trans.sequence(ex, x);
 	}
 	return tuple(ty, ex);
@@ -310,6 +311,7 @@ out(r){ assert(r.field[1] !is null); }body
 
 
 
+debug(semant)
 unittest{
 	void code(string c){}
 	
