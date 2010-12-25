@@ -1,5 +1,6 @@
 ﻿module tok;
 
+import sym;
 import file.peek;
 import debugs;
 import std.exception;
@@ -27,10 +28,6 @@ enum TokTag
 	LBRAC,	RBRAC,
 	COMMA
 }
-
-alias long		IntT;
-alias double	RealT;
-alias string	StrT;
 
 /// 
 struct Token
@@ -262,7 +259,7 @@ private:
 					input.commit();
 					
 					token.tag = TokTag.REAL;
-					token.r   = f;
+					token.r   = RealT(f);
 					//debug(Lexer) p("lexer: Real(%s)", f);
 					return true;
 				}
@@ -282,7 +279,7 @@ private:
 		input.commit();
 		
 		token.tag = TokTag.INT;
-		token.i   = i;
+		token.i   = IntT(i);
 		//debug(Lexer) p("lexer: Int(%d)", i);
 		return true;
 	}
@@ -316,7 +313,7 @@ private:
 		input.commit();
 		
 		token.tag = TokTag.STR;
-		token.s   = vbuf[0 .. len].assumeUnique;
+		token.s   = StrT(vbuf[0 .. len].assumeUnique);
 		//debug(Lexer) p("lexer: String(\"%s\")", val.str);
 		return true;
 	
@@ -354,7 +351,7 @@ private:
 		else
 		{
 			token.tag = TokTag.IDENT;
-			token.s   = str;
+			token.s   = StrT(str);
 			//writefln("lexer: IDENT(%s)", str);
 		}
 		return true;

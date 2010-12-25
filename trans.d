@@ -268,16 +268,16 @@ Exp unEx(Ex exp)
 	case Ex.Tag.EX:
 		return exp.ex;
 	case Ex.Tag.NX:
-		return ESEQ(exp.nx, VINT(0L));	//文は式として0を返す
+		return ESEQ(exp.nx, VINT(0));	//文は式として0を返す
 	case Ex.Tag.CX:
 		auto r = newTemp();
 		auto t = newLabel(), f = newLabel();
 		return ESEQ(
 			SEQ([
-				MOVE(VINT(1L), TEMP(r)),
+				MOVE(VINT(1), TEMP(r)),
 				exp.cx(t, f),
 				LABEL(f),
-				MOVE(VINT(0L), TEMP(r)),
+				MOVE(VINT(0), TEMP(r)),
 				LABEL(t)
 			]),
 			TEMP(r)

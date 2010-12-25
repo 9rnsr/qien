@@ -111,10 +111,10 @@ out(r){ assert(r.field[1] !is null); }body
 			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
 		
 		case AstTag.INT:
-			return tuple(tenv.Int, trans.immediate(n.i.val));
+			return tuple(tenv.Int, trans.immediate(n.i));
 		
 		case AstTag.REAL:
-			return tuple(tenv.Real, trans.immediate(n.r.val));
+			return tuple(tenv.Real, trans.immediate(n.r));
 		
 		case AstTag.STR:
 			return tuple(tenv.Str, Ex.init);

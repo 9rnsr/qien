@@ -66,7 +66,7 @@ public:
 	/**
 	 * リテラル値に対応するオブジェクトを返す
 	 */
-	static Constant opCall(ref T v)
+	static Constant opCall(T v)
 	{
 		if (auto c = v in pool)
 			return *c;
@@ -78,7 +78,13 @@ public:
 	 * リテラル値
 	 */
 	const(T) val;
+	
+	alias val this;
 }
+
+alias Constant!long		IntT;
+alias Constant!double	RealT;
+alias Constant!string	StrT;
 
 /**
  *

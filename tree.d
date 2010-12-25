@@ -34,7 +34,7 @@ enum Relop
 class Exp
 {
 	mixin TagUnion!(
-		"VINT",	IntT,
+		"VINT",	long,
 		"VFUN",	Exp, Label,
 		"NAME",	Label,
 		"TEMP",	Temp,

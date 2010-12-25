@@ -95,7 +95,7 @@ public:
 						tree.BIN(
 							tree.BinOp.ADD,
 							fp,
-							tree.VINT(cast(IntT)(wordSize * slot.index))));
+							tree.VINT(wordSize * slot.index)));
 			else
 				return tree.MEM(fp);
 		}
