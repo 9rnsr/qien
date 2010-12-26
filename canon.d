@@ -12,7 +12,7 @@ import debugs;
 
 Stm[] linearize(Stm s)
 {
-	Stm[] linear(Stm s, Stm[] l)
+	static Stm[] linear(Stm s, Stm[] l)
 	{
 		Stm[] sl;
 		if (SEQ[&sl] <<= s)
@@ -118,14 +118,12 @@ Tuple!(Stm, Exp) do_exp(Exp e)
 	Exp[]	el;
 	BinOp	op;
 	
-	alias Exp E;
-	
 	return match(e,
 		BIN[&op,&a,&b],{
-			return reorder_exp([a,b], (E a, E b){ return BIN(op,a,b); });
+			return reorder_exp([a,b], (Exp a, Exp b){ return BIN(op,a,b); });
 		},
 		MEM[&a],{
-			return reorder_exp([a], (E a){ return MEM(a); });
+			return reorder_exp([a], (Exp a){ return MEM(a); });
 		},
 		ESEQ[&s,&e],{
 			auto s0 = do_stm(s);
@@ -133,10 +131,10 @@ Tuple!(Stm, Exp) do_exp(Exp e)
 			return tuple(seq(s0, s), e);
 		},
 		CALL[&e,&el],{
-			return reorder_exp(e~el, (E e, E[] el){ return CALL(e,el); });
+			return reorder_exp(e~el, (Exp e, Exp[] el){ return CALL(e,el); });
 		},
 		_,{
-			return reorder_exp([], (E[] _){ return e; });
+			return reorder_exp([], (Exp[] _){ return e; });
 		}
 	);
 }
@@ -151,38 +149,36 @@ Stm do_stm(Stm s)
 	Stm[]	sl;
 	Relop	rop;
 	
-	alias Exp E;
-	
 	return match(s,
 		MOVE[TEMP[&r],CALL[&e,&el]],{
-			return reorder_stm(e~el, (E e, E[] el){ return MOVE(TEMP(r),CALL(e,el)); });
+			return reorder_stm(e~el, (Exp e, Exp[] el){ return MOVE(TEMP(r),CALL(e,el)); });
 		},
-		MOVE[TEMP[&r], &b],{
-			return reorder_stm([b], (E e){ return MOVE(TEMP(r), e); });
+		MOVE[TEMP[&r],&b],{
+			return reorder_stm([b], (Exp e){ return MOVE(TEMP(r), e); });
 		},
-		MOVE[MEM[&e], &b],{
-			return reorder_stm([e,b], (E e, E b){ return MOVE(MEM(e), b); });
+		MOVE[MEM[&e],&b],{
+			return reorder_stm([e,b], (Exp e, Exp b){ return MOVE(MEM(e), b); });
 		},
 		MOVE[ESEQ[&s,&e],&b],{
 			return do_stm(seq(s,MOVE(e,b)));
 		},
 		EXP[CALL[&e,&el]],{
-			return reorder_stm(e~el, (E e, E[] el){ return EXP(CALL(e,el)); });
+			return reorder_stm(e~el, (Exp e, Exp[] el){ return EXP(CALL(e,el)); });
 		},
 		EXP[&e],{
-			return reorder_stm([e], (E e){ return EXP(e); });
+			return reorder_stm([e], (Exp e){ return EXP(e); });
 		},
 		JUMP[&e, &ll],{
-			return reorder_stm([e], (E e){ return JUMP(e, ll); });
+			return reorder_stm([e], (Exp e){ return JUMP(e, ll); });
 		},
 		CJUMP[&rop,&a,&b,&t,&f],{
-			return reorder_stm([a,b], (E a, E b){ return CJUMP(rop,a,b,t,f); });
+			return reorder_stm([a,b], (Exp a, Exp b){ return CJUMP(rop,a,b,t,f); });
 		},
 		SEQ[&sl],{
 			return seq(do_stm(sl[0]), do_stm(sl[1]));
 		},
 		_,{
-			return reorder_stm([],(E[] _){ return s; });
+			return reorder_stm([], (Exp[] _){ return s; });
 		}
 	);
 	
@@ -255,6 +251,7 @@ unittest
 //			== seq(MOVE(TEMP(_t1), e1N), seq(MOVE(TEMP(_t2), e2N), seq(s1, EXP(CALL(TEMP(_t1), [TEMP(_t2), e3, e4]))))));
 }
 
+debug(canon)
 unittest
 {
 	writefln("unittest @ %s:%s", __FILE__, __LINE__);
