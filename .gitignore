@@ -2,3 +2,4 @@
 *.lnk
 *.jt
 *.txt
+!test/*.jt

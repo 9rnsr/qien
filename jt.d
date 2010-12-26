@@ -3,6 +3,9 @@
 public import T = tok;
 public import P = parse;
 public import S = semant;
+public import M = machine;
+import trans;
+import assem;
 import std.stdio;
 import debugs;
 
@@ -27,7 +30,28 @@ int main(string[] args)
 		auto ty = S.semant(p);
 		debugout("semant = %s", ty);
 		
-//		auto e = eval(s);
+		auto fragments = trans.getResult().reverse;
+		debugout("semant.frag[] = ");
+		foreach (f; fragments){
+			f.debugOut();
+			debugout("----");
+		}
+		
+		debugout("instr[] = ");
+		auto m = new M.Machine();
+		m.assemble((void delegate(M.Instruction[]) send)
+		{
+			foreach (f; fragments)	//表示の見易さのため反転
+			{
+				scope m = new Munch();
+				auto instr = m.munch(f.p.field[0]);
+				
+				send(instr);
+			}
+		});
+		
+		debugout("run = ");
+		m.run();
 		
 	}
 	

@@ -161,12 +161,12 @@ Ex immediate(RealT v)
 Ex getVar(Level level, Access access)
 {
 	auto slink = frame_ptr;
-	debugout("* %s", slink);
+//	debugout("* %s", slink);
 	while (level !is access.level)
 	{
 		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
 		level = level.parent;
-		debugout("* %s", slink);
+//		debugout("* %s", slink);
 	}
 	return new Ex(level.frame.exp(slink, access.slot));
 }
@@ -291,7 +291,7 @@ Stm unNx(Ex exp)
 	final switch (exp.tag)
 	{
 	case Ex.Tag.EX:
-		return MOVE(exp.ex, nilTemp);
+		return MOVE(exp.ex, MEM(nilTemp));
 	case Ex.Tag.NX:
 		return exp.nx;
 	case Ex.Tag.CX:

@@ -70,7 +70,7 @@ public:
 	 */
 	Slot allocLocal(bool escape)
 	{
-		auto slot = new Slot(this, /*escape*/true);	//TODO: 常にescapeする
+		auto slot = new Slot(this, /*escape*/false);	//TODO: 常にescapeしない
 		slotlist ~= slot;
 		return slot;
 	}
@@ -95,13 +95,17 @@ public:
 						tree.BIN(
 							tree.BinOp.ADD,
 							fp,
-							tree.VINT(wordSize * slot.index)));
+							tree.VINT(wordSize * slot.index))
+					);
 			else
 				return tree.MEM(fp);
 		}
 		else
 		{
-			assert(0);	//常にescapeする
+			return
+				tree.MEM(
+					tree.TEMP(slot.temp)
+				);
 		}
 	}
 }
@@ -124,6 +128,7 @@ private:
 	int tag;
 	union{
 		size_t index;		// IN_FRAME: Slotリスト先頭からのindex
+		Temp temp;
 	}
 
 	this(Frame fr, bool esc)
@@ -136,6 +141,7 @@ private:
 		else
 		{
 			tag = IN_REG;
+			temp = newTemp();
 		}
 	}
 }

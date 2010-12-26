@@ -5,6 +5,8 @@ import trans;
 import debugs;
 import typecons.match, std.typecons;
 
+//debug = semant;
+
 /// 
 Ty semant(AstNode n)
 {
@@ -17,13 +19,6 @@ Ty semant(AstNode n)
 	
 	trans.procEntryExit(trans.outermost, ex);
 	
-	auto res = trans.getResult().reverse;	//表示の見易さのため反転
-	
-	debugout("semant.frag[] = ");
-	foreach (frag; res){
-		frag.debugOut();
-		debugout("----");
-	}
 	return ty;
 }
 
@@ -123,11 +118,11 @@ out(r){ assert(r.field[1] !is null); }body
 			if (auto entry = n.sym in venv)
 			{
 				auto inst_t = tenv.instantiate(entry.ty);
-				debugout("id %s -> %s", n.sym, entry.ty);
-				debugout("   instantiate -> %s", inst_t);
-				//debugout("   venv = %s", venv);
+				debug(semant) debugout("id %s -> %s", n.sym, entry.ty);
+				debug(semant) debugout("   instantiate -> %s", inst_t);
+			//	debug(semant) debugout("   venv = %s", venv);
 				
-				return tuple(inst_t, debugout("Ident.Var %s", trans.getVar(level, entry.access)));
+				return tuple(inst_t, trans.getVar(level, entry.access));
 			}
 			else
 			{
@@ -144,7 +139,7 @@ out(r){ assert(r.field[1] !is null); }body
 			tie[tr, xr] <<= trexp(n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
-				return tuple(tenv.Int, debugout("Add.Ex %s", trans.binAddInt(xl, xr)));
+				return tuple(tenv.Int, trans.binAddInt(xl, xr));
 			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
 			else
@@ -202,12 +197,9 @@ out(r){ assert(r.field[1] !is null); }body
 			}
 			tr = tenv.Meta(tenv.newmetavar());
 			if (!unify(tf, tenv.Arrow(ta, tr)))
-			{
-				debugout("type mismatch");
-				assert(0);
-			}
-			xr = trans.callFun(xf, xa);
+				assert(0, "type mismatch");
 			
+			xr = trans.callFun(xf, xa);
 			return tuple(tr, xr);
 		
 		case AstTag.ASSIGN:
@@ -250,21 +242,20 @@ out(r){ assert(r.field[1] !is null); }body
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
-				debugout("fun tr = %s", tr);
-				debugout("    tf = %s", tf);
-				debugout("    tb = %s", tb);
-				debugout("    tf2 = %s", tf2);
-				debugout("    venv = %s", venv);
+				debug(semant) debugout("fun tr = %s", tr);
+				debug(semant) debugout("    tf = %s", tf);
+				debug(semant) debugout("    tb = %s", tb);
+				debug(semant) debugout("    tf2 = %s", tf2);
+				debug(semant) debugout("    venv = %s", venv);
 				
 				trans.procEntryExit(fn_level, xb);
 				
 				//関数定義は実行処理を伴わない
 				return tuple(tenv.Unit,
-						debugout("Def.Fun",
 							trans.assign(
 								level,
 								acc,
-								trans.makeClosure(level, fn_level, fn_label))));
+								trans.makeClosure(level, fn_level, fn_label)));
 			}
 			else
 			{
@@ -287,13 +278,12 @@ out(r){ assert(r.field[1] !is null); }body
 					if (!venv.add(id.sym, acc, tenv.generalize(ty)))
 						error(n.pos, id.toString ~ " is already defined");
 				}
-				debugout("var ty = %s", ty);
-				debugout("    venv = %s", venv);
+				debug(semant) debugout("var ty = %s", ty);
+				debug(semant) debugout("    venv = %s", venv);
 				
 				//初期化式の結果を代入
 				return tuple(tenv.Unit,
-						debugout("Def.Var %s",
-							trans.assign(level, acc, ex)));
+							trans.assign(level, acc, ex));
 			}
 		}
 	}

@@ -94,7 +94,7 @@ class Temp
 private:
 	static uniq_temp_count = 0;
 	
-	int num;
+	public int num;	//todo
 	string name;
 	this(string s=null)
 	{
