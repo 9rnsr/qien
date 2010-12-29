@@ -147,6 +147,7 @@ private:
 		long		n;
 		Temp		t;
 		tree.Exp	e, e1 ,e2;
+		Label		l;
 		
 		debug(munch) writefln("* munchStm : stm = ");
 		debug(munch) debugout(stm);
@@ -160,6 +161,13 @@ private:
 				emit(I.MOVI(n, munchExp(e)));
 				assert(0);
 			},
+		//	MOVE[VFUN[&TEMP[frame_ptr], &l], MEM[TEMP[&t]]],{
+		//		debug(munch) debugout("munchStm : MOVE[VFUN[&TEMP[frame_ptr], &l], MEM[TEMP[&t]]]");
+		//		
+		//		I.MOV
+		//		
+		//		emit(I.MOVI(n, t));
+		//	},
 			MOVE[&e1, &e2],{
 				debug(munch) debugout("MOVE[&e1, &e2]");
 				auto t1 = munchExp(e1);

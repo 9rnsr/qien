@@ -13,6 +13,8 @@ Ty semant(AstNode n)
 	auto tenv = new TypEnv();
 	auto venv = new VarEnv();
 	
+	findEscape(venv, n);
+
 	Ty ty;
 	Ex ex;
 	tie[ty, ex] <<= transExp(trans.outermost, tenv, venv, n);
@@ -36,13 +38,18 @@ void error(ref FilePos pos, string msg)
 	throw new SemantException(pos, msg);
 }
 
+VarEnv[AstNode] venvof;
+
 /// 
 class VarEnv
 {
 	struct Entry
 	{
-		Ty ty;
-		Access access;
+		uint	depth;
+		bool	escape;
+		
+		Ty		ty;
+		Access	access;
 	}
 	
 	Entry[Symbol] tbl;
@@ -59,13 +66,30 @@ class VarEnv
 		parent = p;
 	}
 	
-	bool add(Symbol s, Access acc, Ty t)
+	bool add(Symbol s, uint dep, bool esc)
 	{
 		if (s in tbl)
 			return false;
 		
-		tbl[s] = Entry(t, acc);
+		tbl[s] = Entry(dep, esc, null, null);
 		return true;
+	}
+	bool add(Symbol s, Access acc, Ty t)
+	{
+	//	if (s in tbl)
+	//		return false;
+	//	
+	//	tbl[s] = Entry(t, acc);
+		
+		auto entry = s in tbl;
+		if (entry && !entry.access && !entry.ty)
+		{
+			entry.access = acc;
+			entry.ty = t;
+			return true;
+		}
+		else
+			return false;
 	}
 	Entry* opIn_r(Symbol s)
 	{
@@ -210,8 +234,8 @@ out(r){ assert(r.field[1] !is null); }body
 			if (n.rhs.tag == AstTag.FUN)
 			{
 				auto fn = n.rhs;
-				scope fn_tenv = new TypEnv(tenv);
-				scope fn_venv = new VarEnv(venv);
+				auto fn_tenv = new TypEnv(tenv);
+				auto fn_venv = venvof[n];	//new VarEnv(venv);
 				
 				auto fn_label = newLabel();
 				auto fn_level = trans.newLevel(level, fn_label, []);
@@ -219,7 +243,8 @@ out(r){ assert(r.field[1] !is null); }body
 				Ty[] tp;
 				foreach (prm; each(fn.prm))
 				{
-					auto prm_acc = fn_level.allocLocal(true);	//常にescapeするとする
+					auto prm_esc = (prm.sym in fn_venv).escape;
+					auto prm_acc = fn_level.allocLocal(prm_esc);
 					
 					auto t = fn_tenv.Meta(fn_tenv.newmetavar());
 					tp ~= t;
@@ -238,7 +263,8 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				auto tf2 = fn_tenv.generalize(tf);
 				
-				auto acc = level.allocLocal(true);	//常にescapeするとする
+				auto esc = (id.sym in venv).escape;
+				auto acc = level.allocLocal(esc);
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
@@ -265,7 +291,8 @@ out(r){ assert(r.field[1] !is null); }body
 				if (ty is tenv.Nil)
 					error(n.pos, "infer error...");
 				
-				auto acc = level.allocLocal(true);	//常にescapeするとする
+				auto esc = (id.sym in venv).escape;
+				auto acc = level.allocLocal(esc);
 				
 				//if (used(id) ){//todo
 				if (true)//todo
@@ -297,6 +324,78 @@ out(r){ assert(r.field[1] !is null); }body
 		ex = trans.sequence(ex, x);
 	}
 	return tuple(ty, ex);
+}
+
+
+void findEscape(VarEnv outermost_venv, AstNode n)
+{
+	void traverse(VarEnv venv, uint depth, AstNode n)
+	{
+		final switch (n.tag)
+		{
+		case AstTag.NOP:
+			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
+		
+		case AstTag.INT:
+		case AstTag.REAL:
+		case AstTag.STR:
+			break;
+		
+		case AstTag.IDENT:
+			if (auto entry = n.sym in venv)
+			{
+				if (entry.depth < depth)
+				{
+					entry.escape = true;
+					writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
+				}
+			}
+			else
+				error(n.pos, n.sym.name ~ " undefined");
+			break;
+		
+		case AstTag.FUN:
+			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
+		
+		case AstTag.ADD:
+		case AstTag.SUB:
+		case AstTag.MUL:
+		case AstTag.DIV:
+			traverse(venv, depth, n.lhs);
+			traverse(venv, depth, n.rhs);
+			break;
+		
+		case AstTag.CALL:
+			traverse(venv, depth, n.lhs);
+			foreach (arg ; each(n.rhs))
+				traverse(venv, depth, arg);
+			break;
+		
+		case AstTag.ASSIGN:
+			error(n.pos, "*** to do impl ****/assign");
+		
+		case AstTag.DEF:
+			auto id = n.lhs;
+			if (n.rhs.tag == AstTag.FUN)
+			{
+				auto fn = n.rhs;
+				auto fn_venv = venvof[n] = new VarEnv(venv);
+				
+				venv.add(id.sym, depth, false);
+				foreach (prm; each(fn.prm))
+					fn_venv.add(prm.sym, depth+1, false);
+				traverse(fn_venv, depth+1, fn.blk);
+			}
+			else
+				venv.add(id.sym, depth, false);
+			break;
+		}
+		
+		if (n.next)
+			traverse(venv, depth, n.next);
+	}
+
+	traverse(outermost_venv, 0, n);
 }
 
 

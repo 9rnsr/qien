@@ -70,7 +70,7 @@ public:
 	 */
 	Slot allocLocal(bool escape)
 	{
-		auto slot = new Slot(this, /*escape*/false);	//TODO: 常にescapeしない
+		auto slot = new Slot(this, escape);
 		slotlist ~= slot;
 		return slot;
 	}
@@ -181,34 +181,3 @@ class Fragment
 		}
 	}
 }
-
-
-
-
-/*「エスケープ」の定義
-	変数の定義スコープの内側に定義される関数からアクセスされる
-	＝静的リンクを辿ってアクセスされる
-	＝フレームに割り付ける必要がある
-
-
-	structure FindEscape: sig val findEscape: Absyn.exp -> unit
-	                      end =
-	struct
-		type depth = int
-		type escEnv = (depth * bool ref) Symbol.table
-		
-		fun traverseVar(env:escEnv, d:depth, s:Absyn.var): unit = ...
-		fun traverseExp(env:escEnv, d:depth, s:Absyn.exp): unit = ...
-		fun traverseDecs(env, d, s:Absyn.dec list): escEnv = ...
-		
-		fun findEscape(prog: Absyn.exp) : unit = ...
-	end
-*/
-
-struct FindEscape
-{
-	alias int Depth;
-	
-}
-
-
