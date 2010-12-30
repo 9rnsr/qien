@@ -6,95 +6,110 @@ import std.stdio;
 import std.string;
 
 /**
-	Instruction format
+*	LDA		@addr		-> $dst		[op:8][dst:8][---------:16] [addr:64]
+	LDB		[fp+n]		-> $dst		[op:8][dst:8][     disp:16]
+	LDI		#imm		-> $dst		[op:8][dst:8][---------:16] [imm :64]
 	
-	[op:8] [op1:8, op2:8, dst:8] [imm:64]?
+	STA		$src		-> @addr	[op:8][---------:16][src:8] [addr:64]
+	STB		$src		-> [fp+n]	[op:8][     disp:16][src:8]
+	
+	MOV		$src		-> $dst		[op:8][dst:8][---:8][src:8]
+	ADD		$src ? $acc	-> $dst		[op:8][dst:8][acc:8][src:8]
+	SUB		<<same>>
+	MUL		<<same>>
+	DIV		<<same>>
 */
+union Instr
+{
+	ubyte ope;
+	struct L { ubyte ope; ubyte dst; short           disp; }	L l;
+	struct S { ubyte ope; short disp;           ubyte src; }	S s;
+	struct A { ubyte ope; ubyte dst; ubyte acc; ubyte src; }	A a;
+	uint data;
+}
+
 enum Op : ubyte
 {
-	NOP		= 0x00,
-	HLT		= 0x01,
-	
-	MOVR	= 0x10,
-	MOVI	= 0x20,
-
-	ADDR	= 0x30,		SUBR	= 0x31,		MULR	= 0x32,		DIVR	= 0x33,
-	ADDI	= 0x40,		SUBI	= 0x41,		MULI	= 0x42,		DIVI	= 0x43,
+	NOP	= 0x00,	HLT	= 0x01,
+	LDA	= 0x10,	LDB	= 0x11,	LDI	= 0x12,
+	STA	= 0x20,	STB	= 0x21,
+	MOV	= 0x30,	ADD	= 0x31,	SUB	= 0x32,	MUL	= 0x33,	DIV	= 0x34,
 }
 
 class Instruction
 {
-	Op ope;
-			Temp op1;
-	union { Temp op2;	long imm; }
-			Temp dst;
+	Instr i;
+	union { ulong adr;	long imm; }
 	
-	this(Op ope, Temp op1, Temp op2, Temp dst)
+	this(Instr.L ld, uint adr)	{ i.l = ld, this.adr = adr; }
+	this(Instr.L ld)			{ i.l = ld; }
+	this(Instr.L ld, long imm)	{ i.l = ld, this.imm = imm; }
+	
+	this(Instr.S st, uint adr)	{ i.s = st, this.adr = adr; }
+	this(Instr.S st)			{ i.s = st; }
+	
+	this(Instr.S st, long imm)	{ i.s = st, this.imm = imm; }
+	this(Instr.A ac)			{ i.a = ac; }
+	
+	static LDA(uint adr, Temp dst) { return new Instruction(Instr.L(Op.LDA, R(dst), 0              ), adr); }
+	static LDB(int disp, Temp dst) { return new Instruction(Instr.L(Op.LDB, R(dst), cast(short)disp)     ); }
+	static LDI(long imm, Temp dst) { return new Instruction(Instr.L(Op.LDI, R(dst), 0              ), imm); }
+	
+	static STA(Temp src, uint adr) { return new Instruction(Instr.S(Op.STA, 0,               R(src)), adr); }
+	static STB(Temp src, int disp) { return new Instruction(Instr.S(Op.STB, cast(short)disp, R(src))     ); }
+	
+	static MOV(Temp src,           Temp dst) { return new Instruction(Instr.A(Op.MOV, R(dst), 0,      R(src))); }
+	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.ADD, R(dst), R(acc), R(src))); }
+	static SUB(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.SUB, R(dst), R(acc), R(src))); }
+	static MUL(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.MUL, R(dst), R(acc), R(src))); }
+	static DIV(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.DIV, R(dst), R(acc), R(src))); }
+	
+	private static ubyte R(in Temp t)
 	{
-		this.ope = ope;
-		this.op1 = op1;
-		this.op2 = op2;
-		this.dst = dst;
+		return cast(ubyte)t.num;	// todo
 	}
-	this(Op op, Temp op1, long imm, Temp dst)
-	{
-		this.ope = op;
-		this.op1 = op1;
-		this.imm = imm;
-		this.dst = dst;
-	}
-	
-	static MOVR(Temp op1,           Temp dst) { return new Instruction(Op.MOVR, op1, null, dst); }
-	static MOVI(          long imm, Temp dst) { return new Instruction(Op.MOVI, null, imm, dst); }
-	static ADDR(Temp op1, Temp op2, Temp dst) { return new Instruction(Op.ADDR, op1, op2, dst); }
-	static SUBR(Temp op1, Temp op2, Temp dst) { return new Instruction(Op.SUBR, op1, op2, dst); }
-	static MULR(Temp op1, Temp op2, Temp dst) { return new Instruction(Op.MULR, op1, op2, dst); }
-	static DIVR(Temp op1, Temp op2, Temp dst) { return new Instruction(Op.DIVR, op1, op2, dst); }
-	static ADDI(Temp op1, long imm, Temp dst) { return new Instruction(Op.ADDI, op1, imm, dst); }
-	static SUBI(Temp op1, long imm, Temp dst) { return new Instruction(Op.SUBI, op1, imm, dst); }
-	static MULI(Temp op1, long imm, Temp dst) { return new Instruction(Op.MULI, op1, imm, dst); }
-	static DIVI(Temp op1, long imm, Temp dst) { return new Instruction(Op.DIVI, op1, imm, dst); }
-	
+
 	string toString()
 	{
-		final switch (ope) with (Op)
+		final switch (i.ope) with (Op)
 		{
 		case NOP:	return "NOP";
 		case HLT:	return "HLT";
-		case MOVR:	return format("MOV  R%s -> R%s", op1, dst);
-		case MOVI:	return format("MOVI #%s -> R%s", imm, dst);
-		case ADDR:	return format("ADD  R%s + R%s -> R%s", op1, op2, dst);
-		case SUBR:	return format("SUB  R%s - R%s -> R%s", op1, op2, dst);
-		case MULR:	return format("MUL  R%s * R%s -> R%s", op1, op2, dst);
-		case DIVR:	return format("DIV  R%s / R%s -> R%s", op1, op2, dst);
-		case ADDI:	return format("ADDI R%s + #%s -> R%s", op1, imm, dst);
-		case SUBI:	return format("SUBI R%s - #%s -> R%s", op1, imm, dst);
-		case MULI:	return format("MULI R%s * #%s -> R%s", op1, imm, dst);
-		case DIVI:	return format("DIVI R%s / #%s -> R%s", op1, imm, dst);
+		
+		case LDA:	return format("LDA R%s <- @%X",      i.l.dst, adr);
+		case LDB:	return format("LDB R%s <- [fp%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
+		case LDI:	return format("LDI R%s <- #%s",      i.l.dst, imm);
+		
+		case STA:	return format("STA R%s -> @%X",      i.s.src, adr);
+		case STB:	return format("STB R%s -> [fp%s%s]", i.s.src, i.s.disp<0?"":"+", i.s.disp);
+		
+		case MOV:	return format("MOV R%s -> R%s",       i.a.src,          i.a.dst);
+		case ADD:	return format("ADD R%s + R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
+		case SUB:	return format("SUB R%s - R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
+		case MUL:	return format("MUL R%s * R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
+		case DIV:	return format("DIV R%s / R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
 		}
 	}
 	
-	const(ubyte[]) assemble() const
+	const(uint[]) assemble() const
 	{
-		static ubyte R(const(Temp) t)
+		final switch (i.ope) with (Op)
 		{
-			return cast(ubyte)t.num;	// todo
-		}
+		case NOP:	return [cast(uint)NOP << 24];
+		case HLT:	return [cast(uint)HLT << 24];
 		
-		final switch (ope) with (Op)
-		{
-		case NOP:	return cast(ubyte[])[NOP,  0,      0,       0];
-		case HLT:	return cast(ubyte[])[HLT,  0,      0,       0];
-		case MOVR:	return cast(ubyte[])[MOVR, R(op1), 0,       R(dst)];
-		case MOVI:	return cast(ubyte[])[MOVI, 0,      0,       R(dst)] ~ (cast(ubyte*)(&imm))[0 .. long.sizeof];
-		case ADDR:	return cast(ubyte[])[ADDR, R(op1), R(op2), R(dst)];
-		case SUBR:	return cast(ubyte[])[SUBR, R(op1), R(op2), R(dst)];
-		case MULR:	return cast(ubyte[])[MULR, R(op1), R(op2), R(dst)];
-		case DIVR:	return cast(ubyte[])[DIVR, R(op1), R(op2), R(dst)];
-		case ADDI:	return cast(ubyte[])[ADDI, R(op1), 0,       R(dst)] ~ (cast(ubyte*)(&imm))[0 .. long.sizeof];
-		case SUBI:	return cast(ubyte[])[SUBI, R(op1), 0,       R(dst)] ~ (cast(ubyte*)(&imm))[0 .. long.sizeof];
-		case MULI:	return cast(ubyte[])[MULI, R(op1), 0,       R(dst)] ~ (cast(ubyte*)(&imm))[0 .. long.sizeof];
-		case DIVI:	return cast(ubyte[])[DIVI, R(op1), 0,       R(dst)] ~ (cast(ubyte*)(&imm))[0 .. long.sizeof];
+		case LDA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof];
+		case LDB:	return [i.data];
+		case LDI:	return [i.data] ~ (cast(uint*)(&imm))[0 ..  long.sizeof];
+		
+		case STA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof];
+		case STB:	return [i.data];
+		
+		case MOV:	return [i.data];
+		case ADD:	return [i.data];
+		case SUB:	return [i.data];
+		case MUL:	return [i.data];
+		case DIV:	return [i.data];
 		}
 	}
 }
@@ -102,8 +117,10 @@ class Instruction
 class Machine
 {
 private:
-	const(ubyte)[] code;
-	long[256] regs;
+	const(uint)[]	code;
+	long[]			stack;
+	long[256]		regs;
+	uint			frame_ptr;
 
 public:
 	this(Instruction[] instr=null)
@@ -111,7 +128,7 @@ public:
 		addInstructions(instr);
 	}
 
-	private this(in ubyte[] c)
+	private this(in uint[] c)
 	{
 		code = c;
 	}
@@ -121,27 +138,37 @@ public:
 		dg(&addInstructions);
 	}
 
+	void setStack(uint ofs, long val)
+	{
+		if (stack.length <= ofs)
+			stack.length *= 2;
+		stack[ofs] = val;
+	}
+
 	void run()
 	{
 		size_t pc = 0;
-		
-		long getImm()
-		{
-			assert(pc + long.sizeof <= code.length);
-			long imm = *cast(long*)(&code[pc]);
-			pc += long.sizeof;
-			return imm;
-		}
 		
 		while (pc < code.length)
 		{
 			auto save_pc = pc;
 			
-			auto ope = code[pc++];
-			auto op1 = code[pc++];
-			auto op2 = code[pc++];
-			auto dst = code[pc++];
-			switch (ope) with (Op)
+			Instr i;
+			i.data = code[pc++];
+			
+			long getImm()
+			{
+				assert(pc + long.sizeof <= code.length);
+				long imm = *cast(long*)(&code[pc]);
+				pc += long.sizeof;
+				return imm;
+			}
+			ulong getAddr()
+			{
+				return cast(ulong)getImm();
+			}
+			
+			switch (i.ope) with (Op)
 			{
 			case NOP:
 				break;
@@ -150,63 +177,83 @@ public:
 				writefln("%08x : HLT", save_pc);
 				pc = code.length;
 				break;
-			case MOVR:
+			
+			case LDA:
+				auto adr = getAddr();
+				writefln("%08x : LDA @%X:%s -> R%s:%s",
+						save_pc, 
+						adr, "--",
+						i.l.dst, regs[i.l.dst]);
+				assert(0);	//memory[adr] = stack[frame_ptr + i.l.disp;
+				break;
+			case LDB:
+				writefln("%08x : LDB [fp%s%s]:%s -> R%s:%s",
+						save_pc, 
+						i.l.disp<0?"":"+", i.l.disp, stack[frame_ptr + i.l.disp],
+						i.l.dst, regs[i.l.dst]);
+				regs[i.l.dst] = stack[frame_ptr + i.l.disp];
+				break;
+			case LDI:
+				auto imm = getImm();
+				writefln("%08x : LDI imm:%s -> R%s:%s",
+						save_pc,
+						imm,
+						i.l.dst, regs[i.l.dst]);
+				regs[i.l.dst] = imm;
+				break;
+			
+			case STA:
+				auto adr = getAddr();
+				assert(0);
+				break;
+			case STB:
+				writefln("%08x : STB R%s:%s -> [fp%s%s]",
+						save_pc,
+						i.s.src, regs[i.s.src],
+						i.s.disp<0?"":"+", i.s.disp);
+				stack[i.s.disp] = regs[i.s.src];
+				break;
+			
+			case MOV:
 				writefln("%08x : MOV R%s:%s -> R%s:%s",
-						save_pc, op1, regs[op1], dst, regs[dst]);
-				regs[dst] = regs[op1];
+						save_pc,
+						i.a.src, regs[i.a.src],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = regs[i.a.src];
 				break;
-			case MOVI:
-				auto imm = getImm();
-				writefln("%08x : MOV imm:%s -> R%s:%s",
-						save_pc, imm, dst, regs[dst]);
-				regs[dst] = imm;
-				break;
-			case ADDR:
+			case ADD:
 				writefln("%08x : ADD R%s:%s + R%s:%s-> %s(%s)",
-						save_pc, op1, regs[op1], op2, regs[op2], dst, regs[dst]);
-				regs[dst] = regs[op1] + regs[op2];
+						save_pc,
+						i.a.src, regs[i.a.src],
+						i.a.acc, regs[i.a.acc],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = regs[i.a.src] + regs[i.a.acc];
 				break;
-			case SUBR:
+			case SUB:
 				writefln("%08x : SUB R%s:%s - R%s:%s-> R%s:%s",
-						save_pc, op1, regs[op1], op2, regs[op2], dst, regs[dst]);
-				regs[dst] = regs[op1] - regs[op2];
+						save_pc,
+						i.a.src, regs[i.a.src],
+						i.a.acc, regs[i.a.acc],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = regs[i.a.src] - regs[i.a.acc];
 				break;
-			case MULR:
+			case MUL:
 				writefln("%08x : MUL R%s:%s * R%s:%s-> R%s:%s",
-						save_pc, op1, regs[op1], op2, regs[op2], dst, regs[dst]);
-				regs[dst] = regs[op1] * regs[op2];
+						save_pc,
+						i.a.src, regs[i.a.src],
+						i.a.acc, regs[i.a.acc],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = regs[i.a.src] * regs[i.a.acc];
 				break;
-			case DIVR:
+			case DIV:
 				writefln("%08x : DIV R%s:%s / R%s:%s-> R%s:%s",
-						save_pc, op1, regs[op1], op2, regs[op2], dst, regs[dst]);
-				regs[dst] = regs[op1] / regs[op2];
-				break;
-			case ADDI:
-				auto imm = getImm();
-				writefln("%08x : ADD R%s:%s + imm:%s-> %s(%s)",
-						save_pc, op1, regs[op1], imm, dst, regs[dst]);
-				regs[dst] = regs[op1] + imm;
-				break;
-			case SUBI:
-				auto imm = getImm();
-				writefln("%08x : SUB R%s:%s - imm:%s-> %s(%s)",
-						save_pc, op1, regs[op1], imm, dst, regs[dst]);
-				regs[dst] = regs[op1] - imm;
-				break;
-			case MULI:
-				auto imm = getImm();
-				writefln("%08x : MUL R%s:%s * imm:%s -> R%s:%s",
-						save_pc, op1, regs[op1], imm, dst, regs[dst]);
-				regs[dst] = regs[op1] * imm;
-				break;
-			case DIVI:
-				auto imm = getImm();
-				writefln("%08x : DIV R%s:%s / imm:%s-> R%s:%s",
-						save_pc, op1, regs[op1], imm, dst, regs[dst]);
-				regs[dst] = regs[op1] / imm;
+						save_pc,
+						i.a.src, regs[i.a.src],
+						i.a.acc, regs[i.a.acc],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = regs[i.a.src] / regs[i.a.acc];
 				break;
 			}
-
 		}
 	}
 
@@ -246,17 +293,17 @@ class Instruction
 	{
 		return new Instruction([cast(ubyte)Op.MOV] ~ regs);
 	}
-	static Instruction MOVI(long imm, ubyte[] regs)
+	static Instruction MOV2I(long imm, ubyte[] regs)
 	{
-		return new Instruction([cast(ubyte)Op.MOVI] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
+		return new Instruction([cast(ubyte)Op.MOV2I] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
 	}
 	static Instruction ADD(ubyte[] regs)
 	{
 		return new Instruction([cast(ubyte)Op.ADD] ~ regs);
 	}
-	static Instruction ADDI(long imm, ubyte[] regs)
+	static Instruction ADD3I(long imm, ubyte[] regs)
 	{
-		return new Instruction([cast(ubyte)Op.ADDI] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
+		return new Instruction([cast(ubyte)Op.ADD3I] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
 	}
 	
 	const(Word[]) instruction() @property
@@ -278,8 +325,8 @@ const(Word)[] makeCode(const(Word[])[] code ...)
 unittest
 {
 	auto m = new Machine(makeCode(
-		I.MOVI(10, reg(0, 0)),
-		I.MOVI(20, reg(1, 1)),
+		I.MOV2I(10, reg(0, 0)),
+		I.MOV2I(20, reg(1, 1)),
 		I.ADD(reg(0, 1, 0))
 	));
 	m.run();

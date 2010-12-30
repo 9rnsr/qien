@@ -276,12 +276,18 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				trans.procEntryExit(fn_level, xb);
 				
-				//関数定義は実行処理を伴わない
-				return tuple(tenv.Unit,
+				if (esc)
+					return tuple(tenv.Unit,
 							trans.assign(
 								level,
 								acc,
 								trans.makeClosure(level, fn_level, fn_label)));
+				else
+					return tuple(tenv.Unit,
+							trans.assign(
+								level,
+								acc,
+								trans.makeFunction(level, fn_level, fn_label)));
 			}
 			else
 			{

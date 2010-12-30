@@ -1,5 +1,6 @@
 import tree;
 import sym;
+import frame;
 import typecons.match;
 import std.conv, std.string, std.stdio;
 import std.metastrings;
@@ -46,12 +47,14 @@ private:
 
 	void emit(Instruction instr)
 	{
+		//writefln("emit : %s", instr);
 		code ~= instr;
 	}
 
 	Temp munchExp(tree.Exp exp)
 	{
 		Temp		t;
+		Label		l;
 		tree.Exp	e, e1, e2;
 		long		n;
 		BinOp		binop;
@@ -63,69 +66,23 @@ private:
 			return t;
 		}
 		
-		static string BinImmCode(string binop)
-		{
-			return mixin(expand!q{
-				case BinOp.${binop}:
-					if (MEM[TEMP[&t]] <<= e)
-					{
-						debug(munch) debugout("munchExp : BIN[BinOp.${binop}, VINT[&n] / MEM[TEMP[&t]]]");
-						return result((Temp r){ emit(I.${binop}I(t, n, r)); });
-					}
-					else
-					{
-						debug(munch) debugout("munchExp : BIN[BinOp.${binop}, VINT[&n] / &e]");
-						return result((Temp r){ emit(I.${binop}I(munchExp(e), n, r)); });
-					}
-					break;
-			});
-		}
-		static string BinRegCode(string binop)
-		{
-			return mixin(expand!q{
-				case BinOp.${binop}:
-					debug(munch) debugout("munchExp : BIN[BinOp.${binop}, &e1, &e2]");
-					emit(I.${binop}R(t1, t2, r));
-					break;
-			});
-		}
-		
 		debug(munch) writefln("* munchExp : exp =");
 		debug(munch) debugout(exp);
 		return match(exp,
-			BIN[&binop, VINT[&n], &e],{
-				switch (binop)
-				{
-				mixin(BinImmCode("ADD"));
-				mixin(BinImmCode("SUB"));
-				mixin(BinImmCode("MUL"));
-				mixin(BinImmCode("DIV"));
-				default:	assert(0);
-				}
-			},
-			BIN[&binop, &e, VINT[&n]],{
-				switch (binop)
-				{
-				mixin(BinImmCode("ADD"));
-				mixin(BinImmCode("SUB"));
-				mixin(BinImmCode("MUL"));
-				mixin(BinImmCode("DIV"));
-				default:	assert(0);
-				}
-			},
 			BIN[&binop, &e1, &e2],{
-				return result((Temp r){
-					auto t1 = munchExp(e1);
-					auto t2 = munchExp(e2);
-					switch (binop)
-					{
-					mixin(BinRegCode("ADD"));
-					mixin(BinRegCode("SUB"));
-					mixin(BinRegCode("MUL"));
-					mixin(BinRegCode("DIV"));
-					default:	assert(0);
-					}
-				});
+				debug(munch) debugout("munchExp : BIN[&binop, &e1, &e2]");
+				switch (binop)
+				{
+				case BinOp.ADD:	return result((Temp r){ emit(I.ADD(munchExp(e1), munchExp(e2), r)); });
+				case BinOp.SUB:	return result((Temp r){ emit(I.SUB(munchExp(e1), munchExp(e2), r)); });
+				case BinOp.MUL:	return result((Temp r){ emit(I.MUL(munchExp(e1), munchExp(e2), r)); });
+				case BinOp.DIV:	return result((Temp r){ emit(I.DIV(munchExp(e1), munchExp(e2), r)); });
+				default:		assert(0);
+				}
+			},
+			MEM[TEMP[&t]],{
+				debug(munch) debugout("munchExp : MEM[TEMP[&t]]");
+				return t;
 			},
 			MEM[&e],{
 				debug(munch) debugout("munchExp : MEM[&e]");
@@ -134,6 +91,14 @@ private:
 			TEMP[&t],{
 				debug(munch) debugout("munchExp : TEMP[&t]");
 				return t;
+			},
+			VINT[&n],{
+				debug(munch) debugout("munchExp : VINT[&n]");
+				return result((Temp r){ emit(I.LDI(n, r)); });
+			},
+			VFUN[&e, &l],{
+				debug(munch) debugout("munchExp : VFUN[&e, &l]");
+				return result((Temp r){ emit(I.LDI(n, r)); });
 			},
 			_,{
 				assert(0);
@@ -144,7 +109,7 @@ private:
 
 	void munchStm(tree.Stm stm)
 	{
-		long		n;
+		long		n, disp;
 		Temp		t;
 		tree.Exp	e, e1 ,e2;
 		Label		l;
@@ -152,13 +117,21 @@ private:
 		debug(munch) writefln("* munchStm : stm = ");
 		debug(munch) debugout(stm);
 		match(stm,
+			MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]],{
+				debug(munch) debugout("munchStm : MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]]");
+				emit(I.STB(munchExp(e), cast(int)disp));
+			},
+			MOVE[e, MEM[frame_ptr]],{
+				debug(munch) debugout("munchStm : MOVE[e, MEM[frame_ptr]]");
+				emit(I.STB(munchExp(e), cast(int)0));
+			},
 			MOVE[VINT[&n], MEM[TEMP[&t]]],{
-				debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[&t]]");
-				emit(I.MOVI(n, t));
+				debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[TEMP[&t]]]");
+				emit(I.LDI(n, t));
 			},
 			MOVE[VINT[&n], &e],{
 				debug(munch) debugout("munchStm : MOVE[VINT[&n], &e]");
-				emit(I.MOVI(n, munchExp(e)));
+				emit(I.LDI(n, munchExp(e)));
 				assert(0);
 			},
 		//	MOVE[VFUN[&TEMP[frame_ptr], &l], MEM[TEMP[&t]]],{
@@ -166,18 +139,18 @@ private:
 		//		
 		//		I.MOV
 		//		
-		//		emit(I.MOVI(n, t));
+		//		emit(I.MOV2I(n, t));
 		//	},
 			MOVE[&e1, &e2],{
-				debug(munch) debugout("MOVE[&e1, &e2]");
+				debug(munch) debugout("munchStm : MOVE[&e1, &e2]");
 				auto t1 = munchExp(e1);
 				auto t2 = munchExp(e2);
-				emit(I.MOVR(t1, t2));
+				emit(I.MOV(t1, t2));
 			},
-			MOVE[&t, &e],{
-				debug(munch) debugout("munchStm : MOVE[&t, &e]");
-				emit(I.MOVR(t, munchExp(e)));
-			},
+		//	MOVE[&t, &e],{
+		//		debug(munch) debugout("munchStm : MOVE[&t, &e]");
+		//		emit(I.MOV(t, munchExp(e)));
+		//	},
 			_,{
 				assert(0);
 			}

@@ -236,6 +236,18 @@ Ex sequence(Ex s1, Ex s2)
 
 /**
  * Params:
+ *   level:		関数が定義されるレベル
+ *   bodylevel:	関数本体のレベル
+ *   label:		関数本体のラベル
+ */
+Ex makeFunction(Level level, Level bodylevel, Label label)
+{
+	return new Ex(
+		VFUN(frame_ptr, label));	// 現在のframe_ptrと関数本体のラベルの組＝関数値
+}
+
+/**
+ * Params:
  *   level:		クロージャが定義されるレベル
  *   bodylevel:	クロージャ本体のレベル
  *   label:		クロージャ本体のラベル
