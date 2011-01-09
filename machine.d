@@ -5,6 +5,9 @@ import assem;
 import std.stdio;
 import std.string;
 
+alias long Word;
+alias ulong Ptr;
+
 /**
 *	LDA		@addr		-> $dst		[op:8][dst:8][---------:16] [addr:64]
 	LDB		[fp+n]		-> $dst		[op:8][dst:8][     disp:16]
@@ -19,50 +22,57 @@ import std.string;
 	MUL		<<same>>
 	DIV		<<same>>
 */
-union Instr
-{
-	ubyte ope;
-	struct L { ubyte ope; ubyte dst; short           disp; }	L l;
-	struct S { ubyte ope; short disp;           ubyte src; }	S s;
-	struct A { ubyte ope; ubyte dst; ubyte acc; ubyte src; }	A a;
-	uint data;
-}
-
-enum Op : ubyte
-{
-	NOP	= 0x00,	HLT	= 0x01,
-	LDA	= 0x10,	LDB	= 0x11,	LDI	= 0x12,
-	STA	= 0x20,	STB	= 0x21,
-	MOV	= 0x30,	ADD	= 0x31,	SUB	= 0x32,	MUL	= 0x33,	DIV	= 0x34,
-}
-
 class Instruction
 {
-	Instr i;
+	union Fmt
+	{
+		ubyte ope;
+		struct L { ubyte ope; ubyte dst; short           disp; }	L l;
+		struct S { ubyte ope; short disp;           ubyte src; }	S s;
+		struct A { ubyte ope; ubyte dst; ubyte acc; ubyte src; }	A a;
+		uint data;
+	}
+	enum Op : ubyte
+	{
+		NOP	= 0x00,	HLT	= 0x01,
+		LDA	= 0x10,	LDB	= 0x11,	LDI	= 0x12,
+		STA	= 0x20,	STB	= 0x21,
+		MOV	= 0x30,	ADD	= 0x31,	SUB	= 0x32,	MUL	= 0x33,	DIV	= 0x34,
+		
+		PUSH_CONT,PUSH_ENV,
+		CALL,RET,
+	}
+
+	Fmt i;
 	union { ulong adr;	long imm; }
 	
-	this(Instr.L ld, uint adr)	{ i.l = ld, this.adr = adr; }
-	this(Instr.L ld)			{ i.l = ld; }
-	this(Instr.L ld, long imm)	{ i.l = ld, this.imm = imm; }
+	this(Fmt.L ld, uint adr)	{ i.l = ld, this.adr = adr; }
+	this(Fmt.L ld)				{ i.l = ld; }
+	this(Fmt.L ld, long imm)	{ i.l = ld, this.imm = imm; }
 	
-	this(Instr.S st, uint adr)	{ i.s = st, this.adr = adr; }
-	this(Instr.S st)			{ i.s = st; }
+	this(Fmt.S st, uint adr)	{ i.s = st, this.adr = adr; }
+	this(Fmt.S st)				{ i.s = st; }
 	
-	this(Instr.S st, long imm)	{ i.s = st, this.imm = imm; }
-	this(Instr.A ac)			{ i.a = ac; }
+	this(Fmt.S st, long imm)	{ i.s = st, this.imm = imm; }
+	this(Fmt.A ac)				{ i.a = ac; }
 	
-	static LDA(uint adr, Temp dst) { return new Instruction(Instr.L(Op.LDA, R(dst), 0              ), adr); }
-	static LDB(int disp, Temp dst) { return new Instruction(Instr.L(Op.LDB, R(dst), cast(short)disp)     ); }
-	static LDI(long imm, Temp dst) { return new Instruction(Instr.L(Op.LDI, R(dst), 0              ), imm); }
+	static LDA(uint adr, Temp dst) { return new Instruction(Fmt.L(Op.LDA, R(dst), 0              ), adr); }
+	static LDB(int disp, Temp dst) { return new Instruction(Fmt.L(Op.LDB, R(dst), cast(short)disp)     ); }
+	static LDI(long imm, Temp dst) { return new Instruction(Fmt.L(Op.LDI, R(dst), 0              ), imm); }
 	
-	static STA(Temp src, uint adr) { return new Instruction(Instr.S(Op.STA, 0,               R(src)), adr); }
-	static STB(Temp src, int disp) { return new Instruction(Instr.S(Op.STB, cast(short)disp, R(src))     ); }
+	static STA(Temp src, uint adr) { return new Instruction(Fmt.S(Op.STA, 0,               R(src)), adr); }
+	static STB(Temp src, int disp) { return new Instruction(Fmt.S(Op.STB, cast(short)disp, R(src))     ); }
 	
-	static MOV(Temp src,           Temp dst) { return new Instruction(Instr.A(Op.MOV, R(dst), 0,      R(src))); }
-	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.ADD, R(dst), R(acc), R(src))); }
-	static SUB(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.SUB, R(dst), R(acc), R(src))); }
-	static MUL(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.MUL, R(dst), R(acc), R(src))); }
-	static DIV(Temp src, Temp acc, Temp dst) { return new Instruction(Instr.A(Op.DIV, R(dst), R(acc), R(src))); }
+	static MOV(Temp src,           Temp dst) { return new Instruction(Fmt.A(Op.MOV, R(dst), 0,      R(src))); }
+	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.ADD, R(dst), R(acc), R(src))); }
+	static SUB(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.SUB, R(dst), R(acc), R(src))); }
+	static MUL(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.MUL, R(dst), R(acc), R(src))); }
+	static DIV(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.DIV, R(dst), R(acc), R(src))); }
+	
+	static PUSH_CONT()		{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
+	static PUSH_ENV()		{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
+	static CALL(uint adr)	{ return new Instruction(Fmt.L(Op.PUSH_CONT, 0,0), adr); }
+	static RET()			{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
 	
 	private static ubyte R(in Temp t)
 	{
@@ -88,6 +98,11 @@ class Instruction
 		case SUB:	return format("SUB R%s - R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
 		case MUL:	return format("MUL R%s * R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
 		case DIV:	return format("DIV R%s / R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
+		
+		case PUSH_CONT:	return "PUSH_CONT";
+		case PUSH_ENV:	return "PUSH_ENV";
+		case CALL:		return format("CALL @%X", adr);
+		case RET:		return "RET";
 		}
 	}
 	
@@ -98,11 +113,11 @@ class Instruction
 		case NOP:	return [cast(uint)NOP << 24];
 		case HLT:	return [cast(uint)HLT << 24];
 		
-		case LDA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof];
+		case LDA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
 		case LDB:	return [i.data];
-		case LDI:	return [i.data] ~ (cast(uint*)(&imm))[0 ..  long.sizeof];
+		case LDI:	return [i.data] ~ (cast(uint*)(&imm))[0 ..  long.sizeof/uint.sizeof];
 		
-		case STA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof];
+		case STA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
 		case STB:	return [i.data];
 		
 		case MOV:	return [i.data];
@@ -110,6 +125,11 @@ class Instruction
 		case SUB:	return [i.data];
 		case MUL:	return [i.data];
 		case DIV:	return [i.data];
+		
+		case PUSH_CONT:	return [i.data];
+		case PUSH_ENV:	return [i.data];
+		case CALL:		return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
+		case RET:		return [i.data];
 		}
 	}
 }
@@ -123,8 +143,11 @@ private:
 	size_t			fp;
 	size_t			sp;
 	size_t			pc;
-//	size_t			ep, cp;		//env, cont
+	size_t			ep;
+	size_t			cp;
 	Heap			heap;
+	
+	enum ContSize = 2;	// ret_pc + ret_ep
 
 public:
 	this(Instruction[] instr=null)
@@ -142,30 +165,32 @@ public:
 		dg(&addInstructions);
 	}
 
-	private void setStack(uint ofs, long val)
+/+	private void setStack(uint ofs, long val)
 	{
 		if (stack.length <= ofs)
 			stack.length *= 2;
 		stack[ofs] = val;
-	}
+	}+/
 
 	void run()
 	{
 		pc = 0;
 		heap = new Heap();
 		
+		//debug writefln("%(%08X %)", code);
+		
 		while (pc < code.length)
 		{
 			auto save_pc = pc;
 			
-			Instr i;
+			Instruction.Fmt i;
 			i.data = code[pc++];
 			
 			long getImm()
 			{
-				assert(pc + long.sizeof <= code.length);
+				assert(pc + long.sizeof/uint.sizeof <= code.length);
 				long imm = *cast(long*)(&code[pc]);
-				pc += long.sizeof;
+				pc += long.sizeof/uint.sizeof;
 				return imm;
 			}
 			ulong getAddr()
@@ -173,7 +198,7 @@ public:
 				return cast(ulong)getImm();
 			}
 			
-			switch (i.ope) with (Op)
+			switch (i.ope) with (Instruction.Op)
 			{
 			case NOP:
 				break;
@@ -258,6 +283,55 @@ public:
 						i.a.dst, regs[i.a.dst]);
 				regs[i.a.dst] = regs[i.a.src] / regs[i.a.acc];
 				break;
+			
+			case PUSH_CONT:
+				writefln("%08X : PUSH_CONT",
+						save_pc);
+				
+				cp = sp;
+				stack.length += 2;
+				stack[sp++] = 0;		// ret_pc(filled by CALL)
+				stack[sp++] = ep;		// ret_ep
+				break;
+			case PUSH_ENV:
+				Ptr ep_tmp = ep;
+				auto cont_ep = &ep_tmp;
+				auto env_top = *cont_ep;
+				while (env_top != 0)
+				{
+					if (Heap.isHeapPtr(env_top))
+						break;
+					auto size = cast(size_t)stack[cast(size_t)env_top + 1];
+					auto env = stack[cast(size_t)env_top .. cast(size_t)env_top+size];
+					auto ptr = heap.alloc(env.length);
+					auto mem = heap.memory(ptr);
+					mem[] = env[];
+					*cont_ep = ptr;
+					
+					cont_ep = cast(Ptr*)&mem[0];
+					env_top = *cont_ep;
+				}
+				ep = cast(size_t)ep_tmp;
+				break;
+			case CALL:
+				auto adr = getAddr();
+				writefln("%08X : CALL @%X",
+						save_pc,
+						adr);
+				
+				stack[cp] = cast(Word)pc;	// fill ret_pc
+				ep = cp + ContSize;
+				pc = cast(size_t)adr;
+				break;
+			case RET:
+				writefln("%08X : RET",
+						save_pc);
+				
+				sp = cp + ContSize;
+				ep = cast(size_t)stack[--sp];
+				pc = cast(size_t)stack[--sp];
+				cp = cp - cast(size_t)(memory(ep)[1] + ContSize);
+				break;
 			}
 		}
 	}
@@ -286,23 +360,29 @@ private:
 		throw new RuntimeException();
 	}
 
+	Word[] memory(Ptr ptr)
+	{
+		if (Heap.isHeapPtr(ptr))
+			return heap.memory(ptr);
+		else
+			return stack[cast(size_t)ptr .. $];
+	}
+
 	class Heap
 	{
-		struct Chunk
-		{
-			size_t	size;
-			void[0]	buffer;
-		}
-		void[][uint] chunklist;
-		uint[] freeids;
-		enum HeapMask = 0x8000_0000;
+		Word[][Ptr] chunklist;
+		Ptr[] freeids;
+		enum HeapMask = 0x8000_0000_0000_0000;
 		
-		uint alloc(size_t n)
-		out(ptr){ assert(ptr & HeapMask); }
+		static bool isHeapPtr(Ptr ptr) pure
+		{
+			return (ptr & HeapMask) != 0;
+		}
+		
+		Ptr alloc(size_t n)
+		out(ptr){ assert(isHeapPtr(ptr)); }
 		body{
-			if (n & 3) n = (n&~3) + 4;
-			
-			uint id;
+			Ptr id;
 			if (freeids.length)
 				id = freeids[0], freeids = freeids[1..$];
 			else
@@ -310,18 +390,17 @@ private:
 			
 			if (id>=HeapMask) error("heap overflow");
 			
-			auto chunk = chunklist[id] = new void[Chunk.sizeof + n];
+			auto chunk = chunklist[id] = new Word[n];
 			
-			return cast(uint)(id | HeapMask);
+			return cast(Ptr)(id | HeapMask);
 		}
-		void[] memory(uint ptr)
-		in{ assert(ptr & HeapMask); }
+		Word[] memory(Ptr ptr)
+		in{ assert(isHeapPtr(ptr)); }
 		body{
-			auto id = cast(uint)(ptr & ~HeapMask);
-			if (auto pm = id in chunklist)
+			auto id = cast(Ptr)(ptr & ~HeapMask);
+			if (auto pmem = id in chunklist)
 			{
-				auto chunk = cast(Chunk*)((*pm).ptr);
-				return chunk.buffer[0 .. chunk.size];
+				return *pmem;
 			}
 			else
 			{
@@ -329,14 +408,14 @@ private:
 				assert(0);
 			}
 		}
-		void free(uint ptr)
-		in{ assert(ptr & HeapMask); }
+		void free(Ptr ptr)
+		in{ assert(isHeapPtr(ptr)); }
 		body{
-			auto id = cast(uint)(ptr & ~HeapMask);
-			if (auto pm = id in chunklist)
+			auto id = cast(Ptr)(ptr & ~HeapMask);
+			if (auto pmem = id in chunklist)
 			{
 				chunklist.remove(id);
-				delete *pm;
+				delete *pmem;
 			}
 			else
 			{
@@ -347,72 +426,3 @@ private:
 		
 	}
 }
-
-/+
-alias ubyte Word;
-
-ubyte[] reg(ubyte lhs, ubyte op2, ubyte dst)
-{
-	return [lhs, op2, dst];
-}
-
-ubyte[] reg(ubyte lhs, ubyte dst)
-{
-	return [lhs, 0, dst];
-}
-
-class Instruction
-{
-	Word[] instr;
-	this(Word[] instr)
-	{
-		this.instr = instr;
-	}
-	
-	static Instruction MOV(ubyte[] regs)
-	{
-		return new Instruction([cast(ubyte)Op.MOV] ~ regs);
-	}
-	static Instruction MOV2I(long imm, ubyte[] regs)
-	{
-		return new Instruction([cast(ubyte)Op.MOV2I] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
-	}
-	static Instruction ADD(ubyte[] regs)
-	{
-		return new Instruction([cast(ubyte)Op.ADD] ~ regs);
-	}
-	static Instruction ADD3I(long imm, ubyte[] regs)
-	{
-		return new Instruction([cast(ubyte)Op.ADD3I] ~ regs ~ (cast(Word*)(&imm))[0 .. long.sizeof]);
-	}
-	
-	const(Word[]) instruction() @property
-	{
-		return instr;
-	}
-	alias instruction this;
-}
-alias Instruction I;
-
-const(Word)[] makeCode(const(Word[])[] code ...)
-{
-	const(Word)[] result;
-	foreach (f; code)
-		result ~= f;
-	return result;
-}
-
-unittest
-{
-	auto m = new Machine(makeCode(
-		I.MOV2I(10, reg(0, 0)),
-		I.MOV2I(20, reg(1, 1)),
-		I.ADD(reg(0, 1, 0))
-	));
-	m.run();
-	assert(m.regs[0] == 30L);
-	assert(m.regs[1] == 20L);
-	
-}
-//void main(){}
-+/
