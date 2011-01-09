@@ -35,12 +35,15 @@ class Instruction
 	enum Op : ubyte
 	{
 		NOP	= 0x00,	HLT	= 0x01,
-		LDA	= 0x10,	LDB	= 0x11,	LDI	= 0x12,
-		STA	= 0x20,	STB	= 0x21,
+		LDA	= 0x10,	LDB	= 0x11,	LDI	= 0x12,		POP	= 0x13,
+		STA	= 0x20,	STB	= 0x21,					PUSH= 0x23,
+		
 		MOV	= 0x30,	ADD	= 0x31,	SUB	= 0x32,	MUL	= 0x33,	DIV	= 0x34,
 		
-		PUSH_CONT,PUSH_ENV,
-		CALL,RET,
+		PUSH_CONT,
+		PUSH_ENV,
+		CALL,
+		RET,
 	}
 
 	Fmt i;
@@ -59,9 +62,11 @@ class Instruction
 	static LDA(uint adr, Temp dst) { return new Instruction(Fmt.L(Op.LDA, R(dst), 0              ), adr); }
 	static LDB(int disp, Temp dst) { return new Instruction(Fmt.L(Op.LDB, R(dst), cast(short)disp)     ); }
 	static LDI(long imm, Temp dst) { return new Instruction(Fmt.L(Op.LDI, R(dst), 0              ), imm); }
+	static POP(Temp dst)           { return new Instruction(Fmt.L(Op.POP, R(dst), 0)); }
 	
 	static STA(Temp src, uint adr) { return new Instruction(Fmt.S(Op.STA, 0,               R(src)), adr); }
 	static STB(Temp src, int disp) { return new Instruction(Fmt.S(Op.STB, cast(short)disp, R(src))     ); }
+	static PUSH(Temp src)          { return new Instruction(Fmt.S(Op.PUSH, 0, R(src))); }
 	
 	static MOV(Temp src,           Temp dst) { return new Instruction(Fmt.A(Op.MOV, R(dst), 0,      R(src))); }
 	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.ADD, R(dst), R(acc), R(src))); }
@@ -89,9 +94,11 @@ class Instruction
 		case LDA:	return format("LDA R%s <- @%X",      i.l.dst, adr);
 		case LDB:	return format("LDB R%s <- [fp%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
 		case LDI:	return format("LDI R%s <- #%s",      i.l.dst, imm);
+		case POP:	return format("POP R%s <- [--sp]",   i.l.dst);
 		
 		case STA:	return format("STA R%s -> @%X",      i.s.src, adr);
 		case STB:	return format("STB R%s -> [fp%s%s]", i.s.src, i.s.disp<0?"":"+", i.s.disp);
+		case PUSH:	return format("PUSH R%s -> [sp++]",  i.s.src);
 		
 		case MOV:	return format("MOV R%s -> R%s",       i.a.src,          i.a.dst);
 		case ADD:	return format("ADD R%s + R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
@@ -116,9 +123,11 @@ class Instruction
 		case LDA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
 		case LDB:	return [i.data];
 		case LDI:	return [i.data] ~ (cast(uint*)(&imm))[0 ..  long.sizeof/uint.sizeof];
+		case POP:	return [i.data];
 		
 		case STA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
 		case STB:	return [i.data];
+		case PUSH:	return [i.data];
 		
 		case MOV:	return [i.data];
 		case ADD:	return [i.data];
@@ -141,7 +150,7 @@ private:
 	long[]			stack;
 	long[256]		regs;
 	size_t			fp;
-	size_t			sp;
+	size_t			sp() @property { return stack.length; };
 	size_t			pc;
 	size_t			ep;
 	size_t			cp;
@@ -231,6 +240,13 @@ public:
 						i.l.dst, regs[i.l.dst]);
 				regs[i.l.dst] = imm;
 				break;
+			case POP:
+				writefln("%08x : POP [--sp] -> R%s:%s",
+						save_pc,
+						i.l.dst, regs[i.l.dst]);
+				regs[i.l.dst] = stack[$-1];
+				stack.length = stack.length - 1;
+				break;
 			
 			case STA:
 				auto adr = getAddr();
@@ -242,6 +258,13 @@ public:
 						i.s.src, regs[i.s.src],
 						i.s.disp<0?"":"+", i.s.disp);
 				stack[i.s.disp] = regs[i.s.src];
+				break;
+			case PUSH:
+				writefln("%08x : PUSH R%s:%s -> [sp++]",
+						save_pc,
+						i.s.src, regs[i.s.src]);
+				stack.length = stack.length + 1;
+				stack[$-1] = regs[i.s.src];
 				break;
 			
 			case MOV:
@@ -289,9 +312,8 @@ public:
 						save_pc);
 				
 				cp = sp;
-				stack.length += 2;
-				stack[sp++] = 0;		// ret_pc(filled by CALL)
-				stack[sp++] = ep;		// ret_ep
+				stack ~= 0;			// ret_pc(filled by CALL)
+				stack ~= ep;		// ret_ep
 				break;
 			case PUSH_ENV:
 				Ptr ep_tmp = ep;
@@ -327,9 +349,9 @@ public:
 				writefln("%08X : RET",
 						save_pc);
 				
-				sp = cp + ContSize;
-				ep = cast(size_t)stack[--sp];
-				pc = cast(size_t)stack[--sp];
+				ep = cast(size_t)stack[cp+1];
+				pc = cast(size_t)stack[cp+0];
+				stack.length = cp ;
 				cp = cp - cast(size_t)(memory(ep)[1] + ContSize);
 				break;
 			}
