@@ -134,13 +134,6 @@ class AstNode
 }
 
 
-/// 
-class ParseException : Exception
-{
-	this(ref FilePos fpos, string msg){ super("ParseError" ~ fpos.toString ~ ": " ~ msg); }
-}
-
-
 /// AstNode#nextを辿って列挙する
 int delegate(scope int delegate(ref AstNode)) each(AstNode n)
 {
@@ -200,6 +193,11 @@ private:
 		do{ input_next(); }while( t == TokTag.NEWLINE )
 	}
 	void error(ref FilePos pos, string msg){
+		/// 
+		static class ParseException : Exception
+		{
+			this(ref FilePos fpos, string msg){ super("ParseError" ~ fpos.toString ~ ": " ~ msg); }
+		}
 		throw new ParseException(pos, msg);
 	}
 

@@ -120,7 +120,11 @@ private:
 	const(uint)[]	code;
 	long[]			stack;
 	long[256]		regs;
-	uint			frame_ptr;
+	size_t			fp;
+	size_t			sp;
+	size_t			pc;
+//	size_t			ep, cp;		//env, cont
+	Heap			heap;
 
 public:
 	this(Instruction[] instr=null)
@@ -138,7 +142,7 @@ public:
 		dg(&addInstructions);
 	}
 
-	void setStack(uint ofs, long val)
+	private void setStack(uint ofs, long val)
 	{
 		if (stack.length <= ofs)
 			stack.length *= 2;
@@ -147,7 +151,8 @@ public:
 
 	void run()
 	{
-		size_t pc = 0;
+		pc = 0;
+		heap = new Heap();
 		
 		while (pc < code.length)
 		{
@@ -184,14 +189,14 @@ public:
 						save_pc, 
 						adr, "--",
 						i.l.dst, regs[i.l.dst]);
-				assert(0);	//memory[adr] = stack[frame_ptr + i.l.disp;
+				assert(0);	//memory[adr] = stack[fp + i.l.disp;
 				break;
 			case LDB:
 				writefln("%08x : LDB [fp%s%s]:%s -> R%s:%s",
 						save_pc, 
-						i.l.disp<0?"":"+", i.l.disp, stack[frame_ptr + i.l.disp],
+						i.l.disp<0?"":"+", i.l.disp, stack[fp + i.l.disp],
 						i.l.dst, regs[i.l.dst]);
-				regs[i.l.dst] = stack[frame_ptr + i.l.disp];
+				regs[i.l.dst] = stack[fp + i.l.disp];
 				break;
 			case LDI:
 				auto imm = getImm();
@@ -265,6 +270,81 @@ private:
 			writefln("addInstructions : %s", i);
 			code ~= i.assemble();
 		}
+	}
+
+	/// 
+	void error(string msg)
+	{
+		class RuntimeException : Exception
+		{
+			this()
+			{
+				super(format("RuntimeError[%08X] : %s", pc, msg));
+			}
+		}
+
+		throw new RuntimeException();
+	}
+
+	class Heap
+	{
+		struct Chunk
+		{
+			size_t	size;
+			void[0]	buffer;
+		}
+		void[][uint] chunklist;
+		uint[] freeids;
+		enum HeapMask = 0x8000_0000;
+		
+		uint alloc(size_t n)
+		out(ptr){ assert(ptr & HeapMask); }
+		body{
+			if (n & 3) n = (n&~3) + 4;
+			
+			uint id;
+			if (freeids.length)
+				id = freeids[0], freeids = freeids[1..$];
+			else
+				id = chunklist.length;
+			
+			if (id>=HeapMask) error("heap overflow");
+			
+			auto chunk = chunklist[id] = new void[Chunk.sizeof + n];
+			
+			return cast(uint)(id | HeapMask);
+		}
+		void[] memory(uint ptr)
+		in{ assert(ptr & HeapMask); }
+		body{
+			auto id = cast(uint)(ptr & ~HeapMask);
+			if (auto pm = id in chunklist)
+			{
+				auto chunk = cast(Chunk*)((*pm).ptr);
+				return chunk.buffer[0 .. chunk.size];
+			}
+			else
+			{
+				error("invalid pointer");
+				assert(0);
+			}
+		}
+		void free(uint ptr)
+		in{ assert(ptr & HeapMask); }
+		body{
+			auto id = cast(uint)(ptr & ~HeapMask);
+			if (auto pm = id in chunklist)
+			{
+				chunklist.remove(id);
+				delete *pm;
+			}
+			else
+			{
+				error("invalid pointer");
+				assert(0);
+			}
+		}
+		
 	}
 }
 
