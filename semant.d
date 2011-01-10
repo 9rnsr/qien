@@ -10,10 +10,9 @@ import typecons.match, std.typecons;
 /// 
 Ty semant(AstNode n)
 {
-	auto tenv = new TypEnv();
+	auto tenv = trans.outermost_tenv;
 	auto venv = new VarEnv();
 	
-	trans.setTypEnv(tenv);
 	findEscape(venv, n);
 
 	Ty ty;
@@ -246,7 +245,7 @@ out(r){ assert(r.field[1] !is null); }body
 				{
 					auto prm_typ = fn_tenv.Meta(fn_tenv.newmetavar());
 					auto prm_esc = (prm.sym in fn_venv).escape;
-					auto prm_acc = fn_level.allocLocal(prm_typ, prm_esc);
+					auto prm_acc = fn_level.allocLocal(prm_typ, true/*prm_esc*/);	// 仮引数は常にFrameに割り当て
 					
 					tp ~= prm_typ;
 					fn_venv.add(prm.sym, prm_acc, prm_typ);
@@ -255,6 +254,8 @@ out(r){ assert(r.field[1] !is null); }body
 				Ty tr, tf;
 				tr = fn_tenv.Meta(fn_tenv.newmetavar());
 				tf = fn_tenv.Arrow(tp, tr);
+				
+				trans.procEntry(fn_level);
 				
 				Ty tb;
 				Ex xb;
@@ -324,7 +325,10 @@ out(r){ assert(r.field[1] !is null); }body
 	
 	Ty ty;
 	Ex ex, x;
+  version(none){
 	tie[ty, ex] <<= trexp(n);
+	if (n.next is null)
+		ex = trans.ret(ex);
 	while ((n = n.next) !is null)
 	{
 		tie[ty, x] <<= trexp(n);
@@ -334,6 +338,15 @@ out(r){ assert(r.field[1] !is null); }body
 		
 		ex = trans.sequence(ex, x);
 	}
+  }else{
+	do{
+		tie[ty, x] <<= trexp(n);
+		if (n.next is null)
+			x = trans.ret(x);
+		ex = trans.sequence(ex, x);
+	}while ((n = n.next) !is null)
+  }
+
 	return tuple(ty, ex);
 }
 

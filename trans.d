@@ -10,11 +10,15 @@ import std.algorithm, std.array;
 /**
  * 最上位のLevelを表す定義済みオブジェクト
  */
-Level outermost;
-static this(){ outermost = new Level(null, newFrame(namedLabel("__toplevel")/*, []*/)); }
+TypEnv outermost_tenv;
+Level  outermost;
+static this()
+{
+	outermost_tenv = new TypEnv();
+	outermost = newLevel(null, newLabel("__toplevel"));
+	outermost.frame.procEntry();
+}
 
-TypEnv tenv;
-static setTypEnv(TypEnv te) { tenv = te; }
 
 /**
  * ネストした関数スコープを表すオブジェクト
@@ -60,7 +64,8 @@ public:
 Level newLevel(Level parent, Label name/*, bool[] formals*/)
 {
 	auto frame = newFrame(name/*, true ~ formals*/);
-	frame.allocLocal(tenv.Int, true);		//フレームポインタを追加
+	frame.allocLocal(outermost_tenv.Int, true);		// static link用のSlotを追加
+	frame.allocLocal(outermost_tenv.Int, true);		// frame  size用のSlotを追加
 	return new Level(parent, frame);
 }
 
@@ -80,12 +85,19 @@ private:
 	}
 }
 
+void procEntry(Level level)
+{
+	level.frame.procEntry();
+}
+
 /**
  * 
  */
 void procEntryExit(Level level, Ex bodyexp)
 {
-	auto lx = linearize(unNx(bodyexp));
+	auto ex = level.frame.procEntryExit1(unNx(bodyexp));
+	
+	auto lx = linearize(ex);
 	frag ~= new Fragment(lx, level.frame);
 }
 
@@ -123,6 +135,16 @@ private:
 	this(GenCx cnd)	{ tag = Tag.CX; cx = cnd; }
 
 public:
+	void debugOut(TreeOut tout)
+	{
+		final switch (tag)
+		{
+		case Tag.EX:	return ex.debugOut(tout);
+		case Tag.NX:	return nx.debugOut(tout);
+		case Tag.CX:	return ;	//todo
+		}
+	}
+	
 	string toString()
 	{
 		final switch (tag)
@@ -187,7 +209,7 @@ Ex getFun(Level level, Level bodylevel, Label label)
  */
 Ex callFun(Ex fun, Ex[] args)
 {
-	return new Ex(CALL(unEx(fun), array(map!(unEx)(args))));
+	return new Ex(CALL(unEx(fun), array(map!unEx(args))));
 }
 
 /**
@@ -227,7 +249,10 @@ Ex binDivInt(Ex lhs, Ex rhs)
  */
 Ex sequence(Ex s1, Ex s2)
 {
-	return new Ex(SEQ([unNx(s1), unNx(s2)]));
+	if (s1)
+		return new Ex(SEQ([unNx(s1), unNx(s2)]));
+	else
+		return s2;
 }
 
 Ex ret(Ex x)

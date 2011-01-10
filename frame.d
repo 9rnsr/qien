@@ -6,23 +6,17 @@ import sym, typ;
 import std.string, std.typecons;
 import debugs;
 
-/**
- * あるコンテキストにおけるフレームポインタを示すテンポラリ
- */
-tree.Exp frame_ptr;
-static this(){ frame_ptr = tree.TEMP(newTemp("FP")); }
+import assem;
 
-/**
- * あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
- */
-tree.Exp return_val;
-static this(){ return_val = tree.TEMP(newTemp("RV")); }
-
-/**
- * IR内のプレースホルダとするための無効なテンポラリ
- */
-tree.Exp nilTemp;
-static this(){ nilTemp = tree.TEMP(newTemp("Nil")); }
+tree.Exp frame_ptr;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
+tree.Exp return_val;	/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
+tree.Exp nilTemp;		/// IR内のプレースホルダとするための無効なテンポラリ
+static this()
+{
+	frame_ptr  = tree.TEMP(newTemp("FP"));
+	return_val = tree.TEMP(newTemp("RV"));
+	nilTemp    = tree.TEMP(newTemp("Nil"));
+}
 
 /**
  * このVirtualMachineにおけるワードサイズ
@@ -42,6 +36,7 @@ class Frame
 private:
 	Label namelabel;
 	Slot[] slotlist;
+	size_t local_start;
 	
 	this(Label label/*, bool[] escapes*/)
 	{
@@ -81,9 +76,40 @@ public:
 		return slot;
 	}
 	
+	void procEntry()
+	{
+		local_start = slotlist.length;
+	}
+	
+	/**
+	 * フレームレベルでのprologue/epilogueコードを付加する
+	 */
 	tree.Stm procEntryExit1(tree.Stm stm)
 	{
-		return stm;	//todo 本来のprologue/epilogueコードを付加していない
+		return stm;	//todo
+	}
+	Instruction[] procEntryExit2(Instruction[] instr)
+	{
+		size_t frameSize = 0;
+		size_t localSize = 0;
+		foreach (i,slot; slotlist)
+		{
+			frameSize += slot.size;
+			if (i >= local_start && slot.tag == Slot.IN_FRAME)
+				localSize += slot.size;
+		}
+		
+		scope m = new Munch();
+		return	I.ENTER(localSize)
+				~ m.munch([
+					tree.MOVE(
+						tree.VINT(frameSize),
+						tree.MEM(
+							tree.BIN(
+								tree.BinOp.ADD,
+								frame_ptr,
+								tree.VINT(1))))])
+				~ instr ~ I.RET();
 	}
 	
 	/**
@@ -98,24 +124,23 @@ public:
 		
 		if (slot.tag == Slot.IN_FRAME)
 		{
-			if (slot.index > 0)
-				return
-					tree.MEM(
-						tree.BIN(
-							tree.BinOp.ADD,
-							fp,
-							tree.VINT(wordSize * slot.index))
-					);
-			else
-				return tree.MEM(fp);
+			size_t disp = 0;
+			foreach (s; slotlist)
+			{
+				if (s is slot) break;
+				disp += s.size;
+			}
+			
+			return
+				tree.MEM(
+					tree.BIN(
+						tree.BinOp.ADD,
+						fp,
+						tree.VINT(disp)));
 		}
 		else
 		{
-			return
-			//	tree.MEM(
-					tree.TEMP(slot.temp)
-			//	)
-				;
+			return tree.TEMP(slot.temp);
 		}
 	}
 }

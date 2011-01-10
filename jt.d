@@ -5,7 +5,7 @@ public import P = parse;
 public import S = semant;
 public import M = machine;
 import trans;
-import assem;
+import assem, frame;
 import std.stdio;
 import debugs;
 
@@ -25,31 +25,39 @@ int main(string[] args)
 		auto t = T.toknize(fname);
 		
 		auto p = P.parse(t);
+		debugout("========");
 		debugout("parse = %s", p.toString);
 		
 		auto ty = S.semant(p);
+		debugout("========");
 		debugout("semant = %s", ty);
 		
 		auto fragments = trans.getResult().reverse;
 		debugout("semant.frag[] = ");
 		foreach (f; fragments){
+			writefln("%s : ", f.p[1].name);
 			f.debugOut();
 			debugout("----");
 		}
 		
+		debugout("========");
 		debugout("instr[] = ");
 		auto m = new M.Machine();
-		m.assemble((void delegate(M.Instruction[]) send)
+		m.assemble((void delegate(Frame, M.Instruction[]) send)
 		{
 			foreach (f; fragments)	//表示の見易さのため反転
 			{
-				scope m = new Munch();
-				auto instr = m.munch(f.p.field[0]);
+				auto stms = f.p[0];
+				auto frame = f.p[1];
 				
-				send(instr);
+				scope m = new Munch();
+				auto instr = m.munch(stms);
+				
+				send(frame, instr);
 			}
 		});
 		
+		debugout("========");
 		debugout("run = ");
 		m.run();
 		

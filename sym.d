@@ -10,12 +10,18 @@ import std.conv, std.string;
 class Symbol
 {
 private:
+	static size_t uniq_symbol_count = 0;
 	static Symbol[string] internTbl;
-	static anonymous_sym_count = 0;
 	
-	this(string s){ name = s; }
+	this(string s)
+	{
+		num = uniq_symbol_count++;
+		name = s;
+	}
 
 public:
+	const(size_t) num;		// todo
+	
 	/**
 	 * シンボル名
 	 */
@@ -37,8 +43,7 @@ Symbol newSymbol(string name=null)
 	if (!name.length)
 	{
 		//無名シンボル用の特殊処理
-		Symbol.anonymous_sym_count++;
-		name = "__anon" ~ to!string(Symbol.anonymous_sym_count);
+		name = "__anon" ~ to!string(Symbol.uniq_symbol_count);
 	}
 	else if (name.length>=6 && name[0..6]=="__anon")
 	{
@@ -92,9 +97,8 @@ alias Constant!string	StrT;
 class Temp
 {
 private:
-	static uniq_temp_count = 0;
+	static size_t uniq_temp_count = 0;
 	
-	public int num;	//todo
 	string name;
 	this(string s=null)
 	{
@@ -103,6 +107,8 @@ private:
 	}
 
 public:
+	const(size_t) num;	// TODO
+	
 	string toString()
 	{
 		if (name)
@@ -117,15 +123,18 @@ Temp newTemp(string name=null)
 	return new Temp(name);
 }
 
-//class Label:Symbol{}
-alias Symbol Label;	//無名シンボル==ラベル
-
-Label newLabel()
+class Label : Symbol
 {
-	return newSymbol();
+private:
+	this(string s=null)
+	{
+		super(s);
+	}
 }
 
-Label namedLabel(string name)
+Label newLabel(string name=null)
 {
-	return newSymbol(name);
+	if (!name.length)
+		name = "__label" ~ to!string(Symbol.uniq_symbol_count);
+	return new Label(name);
 }

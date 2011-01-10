@@ -5,16 +5,20 @@ import assem;
 import std.stdio;
 import std.string;
 
+import frame;
+
+//debug = machine;
+
 alias long Word;
 alias ulong Ptr;
 
 /**
-*	LDA		@addr		-> $dst		[op:8][dst:8][---------:16] [addr:64]
+*	LDA		[@src]		-> $dst		[op:8][dst:8][---:8][src:8]
 	LDB		[fp+n]		-> $dst		[op:8][dst:8][     disp:16]
 	LDI		#imm		-> $dst		[op:8][dst:8][---------:16] [imm :64]
 	
-	STA		$src		-> @addr	[op:8][---------:16][src:8] [addr:64]
-	STB		$src		-> [fp+n]	[op:8][     disp:16][src:8]
+	STA		$src		-> @addr	[op:8][src:8][---------:16] [addr:64]
+	STB		$src		-> [fp+n]	[op:8][src:8][     disp:16]
 	
 	MOV		$src		-> $dst		[op:8][dst:8][---:8][src:8]
 	ADD		$src ? $acc	-> $dst		[op:8][dst:8][acc:8][src:8]
@@ -28,7 +32,7 @@ class Instruction
 	{
 		ubyte ope;
 		struct L { ubyte ope; ubyte dst; short           disp; }	L l;
-		struct S { ubyte ope; short disp;           ubyte src; }	S s;
+		struct S { ubyte ope; ubyte src; short           disp; }	S s;	// alignment fix
 		struct A { ubyte ope; ubyte dst; ubyte acc; ubyte src; }	A a;
 		uint data;
 	}
@@ -40,10 +44,11 @@ class Instruction
 		
 		MOV	= 0x30,	ADD	= 0x31,	SUB	= 0x32,	MUL	= 0x33,	DIV	= 0x34,
 		
-		PUSH_CONT,
-		PUSH_ENV,
-		CALL,
-		RET,
+		CALL		= 0x40,
+		RET			= 0x41,
+		PUSH_CONT	= 0x42,
+		PUSH_ENV	= 0x43,
+		ENTER		= 0x44,
 	}
 
 	Fmt i;
@@ -59,14 +64,14 @@ class Instruction
 	this(Fmt.S st, long imm)	{ i.s = st, this.imm = imm; }
 	this(Fmt.A ac)				{ i.a = ac; }
 	
-	static LDA(uint adr, Temp dst) { return new Instruction(Fmt.L(Op.LDA, R(dst), 0              ), adr); }
+	static LDA(Temp adr, Temp dst) { return new Instruction(Fmt.A(Op.LDA, R(dst), 0, R(adr))); }
 	static LDB(int disp, Temp dst) { return new Instruction(Fmt.L(Op.LDB, R(dst), cast(short)disp)     ); }
 	static LDI(long imm, Temp dst) { return new Instruction(Fmt.L(Op.LDI, R(dst), 0              ), imm); }
 	static POP(Temp dst)           { return new Instruction(Fmt.L(Op.POP, R(dst), 0)); }
 	
-	static STA(Temp src, uint adr) { return new Instruction(Fmt.S(Op.STA, 0,               R(src)), adr); }
-	static STB(Temp src, int disp) { return new Instruction(Fmt.S(Op.STB, cast(short)disp, R(src))     ); }
-	static PUSH(Temp src)          { return new Instruction(Fmt.S(Op.PUSH, 0, R(src))); }
+	static STA(Temp src, uint adr) { return new Instruction(Fmt.S(Op.STA,  R(src), 0), adr); }
+	static STB(Temp src, int disp) { return new Instruction(Fmt.S(Op.STB,  R(src), cast(short)disp)); }
+	static PUSH(Temp src)          { return new Instruction(Fmt.S(Op.PUSH, R(src), 0)); }
 	
 	static MOV(Temp src,           Temp dst) { return new Instruction(Fmt.A(Op.MOV, R(dst), 0,      R(src))); }
 	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.ADD, R(dst), R(acc), R(src))); }
@@ -74,10 +79,11 @@ class Instruction
 	static MUL(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.MUL, R(dst), R(acc), R(src))); }
 	static DIV(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.DIV, R(dst), R(acc), R(src))); }
 	
+	static CALL(Temp adr)	{ return new Instruction(Fmt.A(Op.CALL, 0,0,R(adr))); }
+	static RET()			{ return new Instruction(Fmt.A(Op.RET,       0,0,0)); }
 	static PUSH_CONT()		{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
-	static PUSH_ENV()		{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
-	static CALL(uint adr)	{ return new Instruction(Fmt.L(Op.PUSH_CONT, 0,0), adr); }
-	static RET()			{ return new Instruction(Fmt.A(Op.PUSH_CONT, 0,0,0)); }
+	static PUSH_ENV()		{ return new Instruction(Fmt.A(Op.PUSH_ENV,  0,0,0)); }
+	static ENTER(size_t n)	{ return new Instruction(Fmt.L(Op.ENTER, 0,cast(short)n)); }
 	
 	private static ubyte R(in Temp t)
 	{
@@ -91,7 +97,7 @@ class Instruction
 		case NOP:	return "NOP";
 		case HLT:	return "HLT";
 		
-		case LDA:	return format("LDA R%s <- @%X",      i.l.dst, adr);
+		case LDA:	return format("LDA R%s <- [@%X]",    i.a.dst, i.a.src);
 		case LDB:	return format("LDB R%s <- [fp%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
 		case LDI:	return format("LDI R%s <- #%s",      i.l.dst, imm);
 		case POP:	return format("POP R%s <- [--sp]",   i.l.dst);
@@ -108,8 +114,9 @@ class Instruction
 		
 		case PUSH_CONT:	return "PUSH_CONT";
 		case PUSH_ENV:	return "PUSH_ENV";
-		case CALL:		return format("CALL @%X", adr);
+		case CALL:		return format("CALL R%s", i.a.src);
 		case RET:		return "RET";
+		case ENTER:		return format("ENTER %s", i.l.disp);
 		}
 	}
 	
@@ -120,7 +127,7 @@ class Instruction
 		case NOP:	return [cast(uint)NOP << 24];
 		case HLT:	return [cast(uint)HLT << 24];
 		
-		case LDA:	return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
+		case LDA:	return [i.data];
 		case LDB:	return [i.data];
 		case LDI:	return [i.data] ~ (cast(uint*)(&imm))[0 ..  long.sizeof/uint.sizeof];
 		case POP:	return [i.data];
@@ -137,8 +144,9 @@ class Instruction
 		
 		case PUSH_CONT:	return [i.data];
 		case PUSH_ENV:	return [i.data];
-		case CALL:		return [i.data] ~ (cast(uint*)(&adr))[0 .. ulong.sizeof/uint.sizeof];
+		case CALL:		return [i.data];
 		case RET:		return [i.data];
+		case ENTER:		return [i.data];
 		}
 	}
 }
@@ -148,20 +156,22 @@ class Machine
 private:
 	const(uint)[]	code;
 	long[]			stack;
-	long[256]		regs;
+	long[3+256]		regs;	// todo 3 == frame_ptr+return_val+nilTemp
 	size_t			fp;
 	size_t			sp() @property { return stack.length; };
 	size_t			pc;
-	size_t			ep;
+	ref ulong		ep() @property { return *cast(ulong*)&regs[0]; }	// one of the normal registers
+	void			ep(ulong n) @property { *cast(ulong*)&regs[0] = n; }
 	size_t			cp;
 	Heap			heap;
+	
+	size_t[uint]	label_to_pc;
 	
 	enum ContSize = 2;	// ret_pc + ret_ep
 
 public:
-	this(Instruction[] instr=null)
+	this()
 	{
-		addInstructions(instr);
 	}
 
 	private this(in uint[] c)
@@ -169,7 +179,7 @@ public:
 		code = c;
 	}
 	
-	void assemble(void delegate(void delegate(Instruction[]) send) dg)
+	void assemble(void delegate(void delegate(Frame, Instruction[]) send) dg)
 	{
 		dg(&addInstructions);
 	}
@@ -183,10 +193,30 @@ public:
 
 	void run()
 	{
-		pc = 0;
+		void printStack()
+		{
+			debug(machine) writefln("   stack = %(%04X %)", stack);
+		}
+		void printRegs()
+		{
+			debug(machine) writefln("    regs = ep:%08X, cp:%08X, sp:%08X", ep, cp, sp);
+		}
+		
 		heap = new Heap();
 		
-		//debug writefln("%(%08X %)", code);
+		stack.length = 4;
+		stack[0] = code.length;	// outermost old_pc
+		stack[1] = 0;			// outermost old_ep
+		stack[2] = 0;			// outermost env->up  ( = void)
+		stack[3] = 0xFFFF;		// outermost env->size(placholder)
+		
+		pc = 0;
+		ep = 2;
+		cp = 0;
+		
+		//debug(machine) writefln("code = %(%08X %)", code);
+		
+		printStack();
 		
 		while (pc < code.length)
 		{
@@ -213,39 +243,42 @@ public:
 				break;
 			default:
 			case HLT:
-				writefln("%08x : HLT", save_pc);
+				debug(machine) writefln("%08x : HLT", save_pc);
 				pc = code.length;
 				break;
 			
 			case LDA:
-				auto adr = getAddr();
-				writefln("%08x : LDA @%X:%s -> R%s:%s",
-						save_pc, 
-						adr, "--",
-						i.l.dst, regs[i.l.dst]);
-				assert(0);	//memory[adr] = stack[fp + i.l.disp;
+				//auto adr = getAddr();
+				debug(machine) writefln("%08x : LDA R%s:%s <- [@ R%s:%s]:%s",
+						save_pc,
+						i.a.dst, regs[i.a.dst], 
+						i.a.src, regs[i.a.src], memory(regs[i.a.src])[0]);
+				
+				regs[i.a.dst] = memory(regs[i.a.src])[0];
 				break;
 			case LDB:
-				writefln("%08x : LDB [fp%s%s]:%s -> R%s:%s",
-						save_pc, 
-						i.l.disp<0?"":"+", i.l.disp, stack[fp + i.l.disp],
-						i.l.dst, regs[i.l.dst]);
-				regs[i.l.dst] = stack[fp + i.l.disp];
+				debug(machine) writefln("%08x : LDB R%s:%s <- [fp:%s %s %s]:%s",
+						save_pc,
+						i.l.dst, regs[i.l.dst], 
+						ep, i.l.disp<0?"":"+", i.l.disp, stack[cast(size_t)ep + i.l.disp]);
+				regs[i.l.dst] = stack[cast(size_t)ep + i.l.disp];
 				break;
 			case LDI:
 				auto imm = getImm();
-				writefln("%08x : LDI imm:%s -> R%s:%s",
+				debug(machine) writefln("%08x : LDI R%s:%s <- imm:%s",
 						save_pc,
-						imm,
-						i.l.dst, regs[i.l.dst]);
+						i.l.dst, regs[i.l.dst],
+						imm);
 				regs[i.l.dst] = imm;
 				break;
 			case POP:
-				writefln("%08x : POP [--sp] -> R%s:%s",
+				debug(machine) writefln("%08x : POP [--sp] -> R%s:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst]);
 				regs[i.l.dst] = stack[$-1];
 				stack.length = stack.length - 1;
+				
+				printStack();
 				break;
 			
 			case STA:
@@ -253,29 +286,33 @@ public:
 				assert(0);
 				break;
 			case STB:
-				writefln("%08x : STB R%s:%s -> [fp%s%s]",
+				debug(machine) writefln("%08x : STB R%s:%s -> [fp:%s %s %s]",
 						save_pc,
 						i.s.src, regs[i.s.src],
-						i.s.disp<0?"":"+", i.s.disp);
-				stack[i.s.disp] = regs[i.s.src];
+						ep, i.s.disp<0?"":"+", i.s.disp);
+				stack[cast(size_t)ep + i.s.disp] = regs[i.s.src];
+				
+				printStack();
 				break;
 			case PUSH:
-				writefln("%08x : PUSH R%s:%s -> [sp++]",
+				debug(machine) writefln("%08x : PUSH R%s:%s -> [sp++]",
 						save_pc,
 						i.s.src, regs[i.s.src]);
 				stack.length = stack.length + 1;
 				stack[$-1] = regs[i.s.src];
+				
+				printStack();
 				break;
 			
 			case MOV:
-				writefln("%08x : MOV R%s:%s -> R%s:%s",
+				debug(machine) writefln("%08x : MOV R%s:%s -> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.dst, regs[i.a.dst]);
 				regs[i.a.dst] = regs[i.a.src];
 				break;
 			case ADD:
-				writefln("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
+				debug(machine) writefln("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -283,7 +320,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] + regs[i.a.acc];
 				break;
 			case SUB:
-				writefln("%08x : SUB R%s:%s - R%s:%s-> R%s:%s",
+				debug(machine) writefln("%08x : SUB R%s:%s - R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -291,7 +328,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] - regs[i.a.acc];
 				break;
 			case MUL:
-				writefln("%08x : MUL R%s:%s * R%s:%s-> R%s:%s",
+				debug(machine) writefln("%08x : MUL R%s:%s * R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -299,7 +336,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] * regs[i.a.acc];
 				break;
 			case DIV:
-				writefln("%08x : DIV R%s:%s / R%s:%s-> R%s:%s",
+				debug(machine) writefln("%08x : DIV R%s:%s / R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -307,17 +344,51 @@ public:
 				regs[i.a.dst] = regs[i.a.src] / regs[i.a.acc];
 				break;
 			
+			case CALL:
+				//auto adr = getAddr();
+				debug(machine) writefln("%08X : CALL R%s:%s (pc=%08X)",
+						save_pc,
+						i.a.src, regs[i.a.src],
+						label_to_pc[cast(size_t)regs[i.a.src]]);
+				
+				stack[cp] = cast(Word)pc;	// fill ret_pc
+				ep = cp + ContSize;
+				//pc = cast(size_t)regs[i.a.src];	//cast(size_t)adr;
+				pc = label_to_pc[cast(size_t)regs[i.a.src]];
+				
+				printStack();
+				printRegs();
+				break;
+			case RET:
+				printRegs();
+				debug(machine) writefln("%08X : RET (ret_pc=%08X, ret_ep=%08X)",
+						save_pc,
+						stack[cp+0],
+						stack[cp+1]);
+				
+				ep = stack[cp+1];
+				pc = cast(size_t)stack[cp+0];
+				stack.length = cp;
+				if (ep != 0)	//todo
+					cp = cp - cast(size_t)(memory(ep)[1] + ContSize);
+				
+				printStack();
+				break;
 			case PUSH_CONT:
-				writefln("%08X : PUSH_CONT",
+				debug(machine) writefln("%08X : PUSH_CONT",
 						save_pc);
 				
 				cp = sp;
-				stack ~= 0;			// ret_pc(filled by CALL)
+				stack ~= 0xDDDD;	// ret_pc(filled by CALL)
 				stack ~= ep;		// ret_ep
+				
+				printStack();
 				break;
 			case PUSH_ENV:
-				Ptr ep_tmp = ep;
-				auto cont_ep = &ep_tmp;
+				debug(machine) writefln("%08X : PUSH_ENV",
+						save_pc);
+				
+				auto cont_ep = &(ep());
 				auto env_top = *cont_ep;
 				while (env_top != 0)
 				{
@@ -333,39 +404,34 @@ public:
 					cont_ep = cast(Ptr*)&mem[0];
 					env_top = *cont_ep;
 				}
-				ep = cast(size_t)ep_tmp;
+				
+				printStack();
 				break;
-			case CALL:
-				auto adr = getAddr();
-				writefln("%08X : CALL @%X",
+			case ENTER:
+				debug(machine) writefln("%08X : ENTER %s",
 						save_pc,
-						adr);
+						i.l.disp);
 				
-				stack[cp] = cast(Word)pc;	// fill ret_pc
-				ep = cp + ContSize;
-				pc = cast(size_t)adr;
-				break;
-			case RET:
-				writefln("%08X : RET",
-						save_pc);
+				stack.length = stack.length + i.l.disp;
 				
-				ep = cast(size_t)stack[cp+1];
-				pc = cast(size_t)stack[cp+0];
-				stack.length = cp ;
-				cp = cp - cast(size_t)(memory(ep)[1] + ContSize);
+				printStack();
 				break;
 			}
 		}
 		
-		writefln("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
+		debug(machine) writefln("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
 	}
 
 private:
-	void addInstructions(Instruction[] instr)
+	void addInstructions(Frame frame, Instruction[] instr)
 	{
-		foreach (i; instr)
+		label_to_pc[frame.name.num] = code.length;
+		debug(machine) writefln("label to pc : %s(@%s) -> %08X",
+			frame.name, frame.name.num, code.length);
+		
+		foreach (i; frame.procEntryExit2(instr))
 		{
-			writefln("addInstructions : %s", i);
+			debug(machine) writefln("addInstruction %08X : %s", code.length, i);
 			code ~= i.assemble();
 		}
 	}
