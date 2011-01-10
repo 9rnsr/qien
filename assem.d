@@ -69,6 +69,14 @@ private:
 		debug(munch) writefln("* munchExp : exp =");
 		debug(munch) debugout(exp);
 		return match(exp,
+			VINT[&n],{
+				debug(munch) debugout("munchExp : VINT[&n]");
+				return result((Temp r){ emit(I.LDI(n, r)); });
+			},
+			TEMP[&t],{
+				debug(munch) debugout("munchExp : TEMP[&t]");
+				return t;
+			},
 			BIN[&binop, &e1, &e2],{
 				debug(munch) debugout("munchExp : BIN[&binop, &e1, &e2]");
 				switch (binop)
@@ -80,27 +88,26 @@ private:
 				default:		assert(0);
 				}
 			},
-			MEM[TEMP[&t]],{
-				debug(munch) debugout("munchExp : MEM[TEMP[&t]]");
-				return t;
-			},
-			MEM[&e],{
-				debug(munch) debugout("munchExp : MEM[&e]");
-				return result((Temp r){ ; });
-			},
-			TEMP[&t],{
-				debug(munch) debugout("munchExp : TEMP[&t]");
-				return t;
-			},
-			VINT[&n],{
-				debug(munch) debugout("munchExp : VINT[&n]");
-				return result((Temp r){ emit(I.LDI(n, r)); });
-			},
-			VFUN[&e, &l],{
-				debug(munch) debugout("munchExp : VFUN[&e, &l]");
-				return result((Temp r){ emit(I.LDI(n, r)); });
-			},
+
+		//	MEM[TEMP[&t]],{
+		//		debug(munch) debugout("munchExp : MEM[TEMP[&t]]");
+		//		return t;
+		//	},
+		//	MEM[&e],{
+		//		debug(munch) debugout("munchExp : MEM[&e]");
+		//		return result((Temp r){ ; });
+		//	},
+		//	TEMP[&t],{
+		//		debug(munch) debugout("munchExp : TEMP[&t]");
+		//		return t;
+		//	},
+		//	VFUN[&e, &l],{
+		//		debug(munch) debugout("munchExp : VFUN[&e, &l]");
+		//		assert(0);
+		//		return result((Temp r){ emit(I.LDI(n, r)); });
+		//	},
 			_,{
+				writef("munchExp : _ = "), debugout(exp);
 				assert(0);
 				return result((Temp r){ ; });
 			}
@@ -117,36 +124,63 @@ private:
 		debug(munch) writefln("* munchStm : stm = ");
 		debug(munch) debugout(stm);
 		match(stm,
-			MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]],{
-				debug(munch) debugout("munchStm : MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]]");
-				emit(I.STB(munchExp(e), cast(int)disp));
+			MOVE[&e, TEMP[&t]],{
+				debug(munch) debugout("munchStm : MOVE[&e, TEMP[&t]]");
+				if (TEMP[t] <<= nilTemp)
+					munchExp(e);
+				else
+					if (VINT[&n] <<= e)
+						emit(I.LDI(n, t));
+					else
+					{
+						auto t1 = munchExp(e);
+						emit(I.MOV(t1, t));
+					}
 			},
-			MOVE[e, MEM[frame_ptr]],{
-				debug(munch) debugout("munchStm : MOVE[e, MEM[frame_ptr]]");
-				emit(I.STB(munchExp(e), cast(int)0));
-			},
-			MOVE[VINT[&n], MEM[TEMP[&t]]],{
-				debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[TEMP[&t]]]");
-				emit(I.LDI(n, t));
-			},
-			MOVE[VINT[&n], &e],{
-				debug(munch) debugout("munchStm : MOVE[VINT[&n], &e]");
-				emit(I.LDI(n, munchExp(e)));
-				assert(0);
-			},
-		//	MOVE[VFUN[&TEMP[frame_ptr], &l], MEM[TEMP[&t]]],{
+
+		//	MOVE[&e1, MEM[frame_ptr]],{
+		//		debug(munch) debugout("munchStm : MOVE[&e1, MEM[frame_ptr]]");
+		//		emit(I.STB(munchExp(e1), 0));
+		//	},
+		//	MOVE[&e1, MEM[&e2]],{
+		//		debug(munch) debugout("munchStm : MOVE[&e1, MEM[&e2]]");
+		//		auto t1 = munchExp(e1);
+		//		auto t2 = munchExp(e2);
+		//		emit(I.LDI(t1, t));
+		//	},
+
+		//	MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]],{
+		//		debug(munch) debugout("munchStm : MOVE[e, BIN[BinOp.ADD, MEM[frame_ptr], VINT[&disp]]]");
+		//		emit(I.STB(munchExp(e), cast(int)disp));
+		//	},
+		//	MOVE[e, MEM[frame_ptr]],{
+		//		debug(munch) debugout("munchStm : MOVE[e, MEM[frame_ptr]]");
+		//		emit(I.STB(munchExp(e), cast(int)0));
+		//	},
+		//	MOVE[VINT[&n], MEM[TEMP[&t]]],{
+		//		debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[TEMP[&t]]]");
+		//		emit(I.LDI(n, t));
+		//	},
+		//	MOVE[VINT[&n], &e],{
+		//		debug(munch) debugout("munchStm : MOVE[VINT[&n], &e]");
+		//		emit(I.LDI(n, munchExp(e)));
+		//		assert(0);
+		//	},
+		//	MOVE[VFUN[frame_ptr, &l], MEM[frame_ptr]],{
 		//		debug(munch) debugout("munchStm : MOVE[VFUN[&TEMP[frame_ptr], &l], MEM[TEMP[&t]]]");
 		//		
 		//		I.MOV
 		//		
 		//		emit(I.MOV2I(n, t));
 		//	},
-			MOVE[&e1, &e2],{
-				debug(munch) debugout("munchStm : MOVE[&e1, &e2]");
-				auto t1 = munchExp(e1);
-				auto t2 = munchExp(e2);
-				emit(I.MOV(t1, t2));
-			},
+		//	MOVE[VFUN[frame_ptr, &l], MEM[BIN[BinOp.ADD, frame_ptr, &n]]],{
+		//	},
+		//	MOVE[&e1, &e2],{
+		//		debug(munch) debugout("munchStm : MOVE[&e1, &e2]");
+		//		auto t1 = munchExp(e1);
+		//		auto t2 = munchExp(e2);
+		//		emit(I.MOV(t1, t2));
+		//	},
 		//	MOVE[&t, &e],{
 		//		debug(munch) debugout("munchStm : MOVE[&t, &e]");
 		//		emit(I.MOV(t, munchExp(e)));

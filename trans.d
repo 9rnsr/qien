@@ -1,6 +1,6 @@
 ﻿module trans;
 
-import sym, tree;
+import sym, typ, tree;
 import frame;		// 実行環境は仮想機械(VM)を使用する
 import canon;
 import debugs;
@@ -11,16 +11,10 @@ import std.algorithm, std.array;
  * 最上位のLevelを表す定義済みオブジェクト
  */
 Level outermost;
-static this(){ outermost = new Level(null, newFrame(namedLabel("__toplevel"), [])); }
+static this(){ outermost = new Level(null, newFrame(namedLabel("__toplevel")/*, []*/)); }
 
-private
-{
-	/**
-	 * IR内のプレースホルダとするための無効なテンポラリ
-	 */
-	static Exp nilTemp;
-	static this(){ nilTemp = TEMP(newTemp("Nil")); }
-}
+TypEnv tenv;
+static setTypEnv(TypEnv te) { tenv = te; }
 
 /**
  * ネストした関数スコープを表すオブジェクト
@@ -54,18 +48,20 @@ public:
 	 * Return:
 	 *   割り当てたAccessを返す
 	 */
-	Access allocLocal(bool escape)
+	Access allocLocal(Ty ty, bool escape)
 	{
-		auto acc = new Access(this, frame.allocLocal(escape));
+		auto acc = new Access(this, frame.allocLocal(ty, escape));
 		acclist ~= acc;
 		return acc;
 	}
 }
 
 /// 
-Level newLevel(Level parent, Label name, bool[] formals)
+Level newLevel(Level parent, Label name/*, bool[] formals*/)
 {
-	return new Level(parent, newFrame(name, true ~ formals));		//フレームポインタを追加
+	auto frame = newFrame(name/*, true ~ formals*/);
+	frame.allocLocal(tenv.Int, true);		//フレームポインタを追加
+	return new Level(parent, frame);
 }
 
 /**
@@ -234,6 +230,11 @@ Ex sequence(Ex s1, Ex s2)
 	return new Ex(SEQ([unNx(s1), unNx(s2)]));
 }
 
+Ex ret(Ex x)
+{
+	return new Ex(MOVE(unEx(x), return_val));
+}
+
 /**
  * Params:
  *   level:		関数が定義されるレベル
@@ -303,7 +304,7 @@ Stm unNx(Ex exp)
 	final switch (exp.tag)
 	{
 	case Ex.Tag.EX:
-		return MOVE(exp.ex, MEM(nilTemp));
+		return MOVE(exp.ex, nilTemp);
 	case Ex.Tag.NX:
 		return exp.nx;
 	case Ex.Tag.CX:

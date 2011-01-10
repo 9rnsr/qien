@@ -2,7 +2,7 @@
 
 static import tree;
 
-import sym;
+import sym, typ;
 import std.string, std.typecons;
 import debugs;
 
@@ -17,6 +17,12 @@ static this(){ frame_ptr = tree.TEMP(newTemp("FP")); }
  */
 tree.Exp return_val;
 static this(){ return_val = tree.TEMP(newTemp("RV")); }
+
+/**
+ * IR内のプレースホルダとするための無効なテンポラリ
+ */
+tree.Exp nilTemp;
+static this(){ nilTemp = tree.TEMP(newTemp("Nil")); }
 
 /**
  * このVirtualMachineにおけるワードサイズ
@@ -37,11 +43,11 @@ private:
 	Label namelabel;
 	Slot[] slotlist;
 	
-	this(Label label, bool[] escapes)
+	this(Label label/*, bool[] escapes*/)
 	{
 		namelabel = label;
-		foreach (esc; escapes)
-			allocLocal(esc);		//formalsを割り当て
+	//	foreach (esc; escapes)
+	//		allocLocal(esc);		//formalsを割り当て
 	}
 
 public:
@@ -68,9 +74,9 @@ public:
 	 * Return:
 	 *   割り当てたSlotを返す
 	 */
-	Slot allocLocal(bool escape)
+	Slot allocLocal(Ty ty, bool escape)
 	{
-		auto slot = new Slot(this, escape);
+		auto slot = new Slot(this, ty, escape);
 		slotlist ~= slot;
 		return slot;
 	}
@@ -85,6 +91,9 @@ public:
 	 */
 	tree.Exp exp(tree.Exp fp, Slot slot)
 	{
+		auto slot_size = slot.size;
+		assert(slot_size > 0);
+		
 		tree.Exp x;
 		
 		if (slot.tag == Slot.IN_FRAME)
@@ -103,9 +112,10 @@ public:
 		else
 		{
 			return
-				tree.MEM(
+			//	tree.MEM(
 					tree.TEMP(slot.temp)
-				);
+			//	)
+				;
 		}
 	}
 }
@@ -113,9 +123,18 @@ public:
 /**
  * 新しいFrameを生成する
  */
-Frame newFrame(Label label, bool[] formals)
+Frame newFrame(Label label/*, bool[] formals*/)
 {
-	return new Frame(label, formals);
+	return new Frame(label/*, formals*/);
+}
+
+size_t getTypeSize(Ty ty)
+{
+	assert(ty.isInferred);
+	if (ty.isFunction)
+		return 2;
+	else
+		return 1;
 }
 
 /**
@@ -124,15 +143,17 @@ Frame newFrame(Label label, bool[] formals)
 class Slot
 {
 private:
-	enum{ IN_REG, IN_FRAME }
-	int tag;
+	Ty type;
+	enum{ IN_REG, IN_FRAME } int tag;
 	union{
-		size_t index;		// IN_FRAME: Slotリスト先頭からのindex
-		Temp temp;
+		size_t index;			// IN_FRAME: Slotリスト先頭からのindex
+		Temp temp;				// IN_REG: 
 	}
+	size_t len;
 
-	this(Frame fr, bool esc)
+	this(Frame fr, Ty ty, bool esc)
 	{
+		type = ty;
 		if (esc)
 		{
 			tag = IN_FRAME;
@@ -143,6 +164,17 @@ private:
 			tag = IN_REG;
 			temp = newTemp();
 		}
+	}
+
+	size_t size() @property
+	{
+		if (len == 0)
+			len = .getTypeSize(type);
+		
+		if (tag == IN_REG)
+			assert(len == 1);
+		
+		return len;
 	}
 }
 

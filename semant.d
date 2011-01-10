@@ -13,6 +13,7 @@ Ty semant(AstNode n)
 	auto tenv = new TypEnv();
 	auto venv = new VarEnv();
 	
+	trans.setTypEnv(tenv);
 	findEscape(venv, n);
 
 	Ty ty;
@@ -238,17 +239,17 @@ out(r){ assert(r.field[1] !is null); }body
 				auto fn_venv = venvof[n];	//new VarEnv(venv);
 				
 				auto fn_label = newLabel();
-				auto fn_level = trans.newLevel(level, fn_label, []);
+				auto fn_level = trans.newLevel(level, fn_label/*, []*/);
 				
 				Ty[] tp;
 				foreach (prm; each(fn.prm))
 				{
+					auto prm_typ = fn_tenv.Meta(fn_tenv.newmetavar());
 					auto prm_esc = (prm.sym in fn_venv).escape;
-					auto prm_acc = fn_level.allocLocal(prm_esc);
+					auto prm_acc = fn_level.allocLocal(prm_typ, prm_esc);
 					
-					auto t = fn_tenv.Meta(fn_tenv.newmetavar());
-					tp ~= t;
-					fn_venv.add(prm.sym, prm_acc, t);
+					tp ~= prm_typ;
+					fn_venv.add(prm.sym, prm_acc, prm_typ);
 				}
 				
 				Ty tr, tf;
@@ -264,7 +265,7 @@ out(r){ assert(r.field[1] !is null); }body
 				auto tf2 = fn_tenv.generalize(tf);
 				
 				auto esc = (id.sym in venv).escape;
-				auto acc = level.allocLocal(esc);
+				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
@@ -298,7 +299,7 @@ out(r){ assert(r.field[1] !is null); }body
 					error(n.pos, "infer error...");
 				
 				auto esc = (id.sym in venv).escape;
-				auto acc = level.allocLocal(esc);
+				auto acc = level.allocLocal(ty, esc);
 				
 				//if (used(id) ){//todo
 				if (true)//todo
@@ -327,6 +328,10 @@ out(r){ assert(r.field[1] !is null); }body
 	while ((n = n.next) !is null)
 	{
 		tie[ty, x] <<= trexp(n);
+		
+		if (n.next is null)
+			x = trans.ret(x);
+		
 		ex = trans.sequence(ex, x);
 	}
 	return tuple(ty, ex);

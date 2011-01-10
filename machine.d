@@ -275,7 +275,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src];
 				break;
 			case ADD:
-				writefln("%08x : ADD R%s:%s + R%s:%s-> %s(%s)",
+				writefln("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -356,6 +356,8 @@ public:
 				break;
 			}
 		}
+		
+		writefln("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
 	}
 
 private:

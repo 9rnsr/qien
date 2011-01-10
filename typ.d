@@ -100,6 +100,16 @@ class Ty
 		return false;
 	}
 	
+	@property bool isInferred() const
+	{
+		return (tag != TyTag.VAR || tag != TyTag.META);
+	}
+	
+	@property bool isFunction() const
+	{
+		return (tag == TyTag.APP && tycon == TyconTag.ARROW);
+	}
+	
 	string toString()
 	{
 		final switch (tag) with(TyTag)
