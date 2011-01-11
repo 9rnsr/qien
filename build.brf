@@ -1,2 +1,5 @@
--clean
+# -clean
+-odobj
+-Xphobos
+-Xwin32
 jt.d
