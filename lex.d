@@ -2,9 +2,9 @@
 
 import sym;
 import file.peek;
-import debugs;
 import std.exception;
 import std.ctype : isalpha, isalnum, isdigit, isxdigit, toL=tolower;
+import debugs;
 
 
 public import file.peek : FilePos;

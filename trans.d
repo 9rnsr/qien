@@ -1,10 +1,11 @@
 ﻿module trans;
 
-import sym, typ, tree;
-import frame;		// 実行環境は仮想機械(VM)を使用する
+import sym, typ;
 import canon;
-import debugs;
+import frame;
+import T = tree;
 import std.algorithm, std.range;
+import debugs;
 
 
 /**
@@ -119,19 +120,19 @@ Retro!(Fragment[]) getResult()
  */
 class Ex
 {
-	alias Stm delegate(Label t, Label f) GenCx;
+	alias T.Stm delegate(Label t, Label f) GenCx;
 	
 private:
 	enum Tag{ EX, NX, CX }
 	Tag tag;
 	union{
-		Exp ex;
-		Stm nx;
+		T.Exp ex;
+		T.Stm nx;
 		GenCx cx;
 	}
 
-	this(Exp exp)	{ tag = Tag.EX; ex = exp; }
-	this(Stm stm)	{ tag = Tag.NX; nx = stm; }
+	this(T.Exp exp)	{ tag = Tag.EX; ex = exp; }
+	this(T.Stm stm)	{ tag = Tag.NX; nx = stm; }
 	this(GenCx cnd)	{ tag = Tag.CX; cx = cnd; }
 
 public:
@@ -161,7 +162,7 @@ public:
  */
 Ex immediate(IntT v)
 {
-	return new Ex(VINT(v));
+	return new Ex(T.VINT(v));
 }
 /**
  * 実数値を即値IRに変換する
@@ -201,7 +202,7 @@ Ex getFun(Level level, Level bodylevel, Label label)
 		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
 		level = level.parent;
 	}
-	return new Ex(VFUN(slink, label));
+	return new Ex(T.VFUN(slink, label));
 }
 
 /**
@@ -209,7 +210,7 @@ Ex getFun(Level level, Level bodylevel, Label label)
  */
 Ex callFun(Ex fun, Ex[] args)
 {
-	return new Ex(CALL(unEx(fun), array(map!unEx(args))));
+	return new Ex(T.CALL(unEx(fun), array(map!unEx(args))));
 }
 
 /**
@@ -217,7 +218,7 @@ Ex callFun(Ex fun, Ex[] args)
  */
 Ex binAddInt(Ex lhs, Ex rhs)
 {
-	return new Ex(BIN(BinOp.ADD, unEx(lhs), unEx(rhs)));
+	return new Ex(T.BIN(T.BinOp.ADD, unEx(lhs), unEx(rhs)));
 }
 
 /**
@@ -225,7 +226,7 @@ Ex binAddInt(Ex lhs, Ex rhs)
  */
 Ex binSubInt(Ex lhs, Ex rhs)
 {
-	return new Ex(BIN(BinOp.SUB, unEx(lhs), unEx(rhs)));
+	return new Ex(T.BIN(T.BinOp.SUB, unEx(lhs), unEx(rhs)));
 }
 
 /**
@@ -233,7 +234,7 @@ Ex binSubInt(Ex lhs, Ex rhs)
  */
 Ex binMulInt(Ex lhs, Ex rhs)
 {
-	return new Ex(BIN(BinOp.MUL, unEx(lhs), unEx(rhs)));
+	return new Ex(T.BIN(T.BinOp.MUL, unEx(lhs), unEx(rhs)));
 }
 
 /**
@@ -241,7 +242,7 @@ Ex binMulInt(Ex lhs, Ex rhs)
  */
 Ex binDivInt(Ex lhs, Ex rhs)
 {
-	return new Ex(BIN(BinOp.DIV, unEx(lhs), unEx(rhs)));
+	return new Ex(T.BIN(T.BinOp.DIV, unEx(lhs), unEx(rhs)));
 }
 
 /**
@@ -250,14 +251,14 @@ Ex binDivInt(Ex lhs, Ex rhs)
 Ex sequence(Ex s1, Ex s2)
 {
 	if (s1)
-		return new Ex(SEQ([unNx(s1), unNx(s2)]));
+		return new Ex(T.SEQ([unNx(s1), unNx(s2)]));
 	else
 		return s2;
 }
 
 Ex ret(Ex x)
 {
-	return new Ex(MOVE(unEx(x), return_val));
+	return new Ex(T.MOVE(unEx(x), return_val));
 }
 
 /**
@@ -269,7 +270,7 @@ Ex ret(Ex x)
 Ex makeFunction(Level level, Level bodylevel, Label label)
 {
 	return new Ex(
-		VFUN(frame_ptr, label));	// 現在のframe_ptrと関数本体のラベルの組＝関数値
+		T.VFUN(frame_ptr, label));	// 現在のframe_ptrと関数本体のラベルの組＝関数値
 }
 
 /**
@@ -280,9 +281,9 @@ Ex makeFunction(Level level, Level bodylevel, Label label)
  */
 Ex makeClosure(Level level, Level bodylevel, Label label)
 {
-	return new Ex(ESEQ(
-		CLOS(label),				// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
-		VFUN(frame_ptr, label)));	// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
+	return new Ex(T.ESEQ(
+		T.CLOS(label),				// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
+		T.VFUN(frame_ptr, label)));	// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
 }
 
 /**
@@ -296,49 +297,49 @@ Ex assign(Level level, Access access, Ex value)
 		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
 		level = level.parent;
 	}
-	return new Ex(MOVE(unEx(value), level.frame.exp(slink, access.slot)));
+	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slot)));
 }
 
-Exp unEx(Ex exp)
+T.Exp unEx(Ex exp)
 {
 	final switch (exp.tag)
 	{
 	case Ex.Tag.EX:
 		return exp.ex;
 	case Ex.Tag.NX:
-		return ESEQ(exp.nx, VINT(0));	//文は式として0を返す
+		return T.ESEQ(exp.nx, T.VINT(0));	//文は式として0を返す
 	case Ex.Tag.CX:
 		auto r = newTemp();
 		auto t = newLabel(), f = newLabel();
-		return ESEQ(
-			SEQ([
-				MOVE(VINT(1), TEMP(r)),
+		return T.ESEQ(
+			T.SEQ([
+				T.MOVE(T.VINT(1), T.TEMP(r)),
 				exp.cx(t, f),
-				LABEL(f),
-				MOVE(VINT(0), TEMP(r)),
-				LABEL(t)
+				T.LABEL(f),
+				T.MOVE(T.VINT(0), T.TEMP(r)),
+				T.LABEL(t)
 			]),
-			TEMP(r)
+			T.TEMP(r)
 		);
 	}
 	return null;
 }
 
-Stm unNx(Ex exp)
+T.Stm unNx(Ex exp)
 {
 	final switch (exp.tag)
 	{
 	case Ex.Tag.EX:
-		return MOVE(exp.ex, nilTemp);
+		return T.MOVE(exp.ex, nilTemp);
 	case Ex.Tag.NX:
 		return exp.nx;
 	case Ex.Tag.CX:
 		auto l = newLabel();
-		return SEQ([exp.cx(l, l), LABEL(l)]);
+		return T.SEQ([exp.cx(l, l), T.LABEL(l)]);
 	}
 }
 
-Stm delegate(Label, Label) unCx(Ex exp)
+T.Stm delegate(Label, Label) unCx(Ex exp)
 {
 	final switch (exp.tag)
 	{
@@ -346,12 +347,12 @@ Stm delegate(Label, Label) unCx(Ex exp)
 		auto x = exp.ex;
 		return delegate(Label t, Label f){
 			assert(0);
-			return Stm.init;	//todo
+			return T.Stm.init;	//todo
 		};
 	case Ex.Tag.NX:
 		return delegate(Label t, Label f){
 			assert(0);
-			return Stm.init;	//todo
+			return T.Stm.init;	//todo
 		};
 	case Ex.Tag.CX:
 		return exp.cx;

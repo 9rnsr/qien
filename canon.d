@@ -1,21 +1,19 @@
 ﻿module canon;
 
 import sym;
-import tree;
+import T = tree;
 import typecons.match;
-import std.typecons;
-import std.traits;
-import std.typetuple : allSatisfy;
+import std.typecons, std.typetuple;
 import debugs;
 
 //debug = canon;
 
-Stm[] linearize(Stm s)
+T.Stm[] linearize(T.Stm s)
 {
-	static Stm[] linear(Stm s, Stm[] l)
+	static T.Stm[] linear(T.Stm s, T.Stm[] l)
 	{
-		Stm[] sl;
-		if (SEQ[&sl] <<= s)
+		T.Stm[] sl;
+		if (T.SEQ[&sl] <<= s)
 			return linear(sl[0], linear(sl[1], l));
 	    else
 			return s ~ l;
@@ -25,41 +23,41 @@ Stm[] linearize(Stm s)
 
 
 
-Stm seq(Stm x, Stm y)
+T.Stm seq(T.Stm x, T.Stm y)
 {
-	if (EXP[VINT[_]] <<= x) return y;
-	if (EXP[VINT[_]] <<= y) return x;
-	return SEQ([x,y]);
+	if (T.EXP[T.VINT[_]] <<= x) return y;
+	if (T.EXP[T.VINT[_]] <<= y) return x;
+	return T.SEQ([x,y]);
 }
 
-bool commute(Stm s, Exp e)
+bool commute(T.Stm s, T.Exp e)
 {
-	if (EXP[VINT[_]] <<= s) return true;
-	if (NAME[_] <<= e) return true;
-	if (VINT[_] <<= e) return true;
+	if (T.EXP[T.VINT[_]] <<= s) return true;
+	if (T.NAME[_] <<= e) return true;
+	if (T.VINT[_] <<= e) return true;
 	return false;
 }
 
-Tuple!(Stm, Exp[]) reorder(Exp[] el)
+Tuple!(T.Stm, T.Exp[]) reorder(T.Exp[] el)
 {
-	auto nop = EXP(VINT(0));
+	auto nop = T.EXP(T.VINT(0));
 
 	if (el.length == 0)
-		return tuple(nop, (Exp[]).init);
+		return tuple(nop, (T.Exp[]).init);
 	else
 	{
 		auto a = el[0];
 		auto rest = el[1..$];
 		
-		if (CALL[_,_] <<= a)
+		if (T.CALL[_,_] <<= a)
 		{
 			auto t = newTemp();
-			return reorder(ESEQ(MOVE(TEMP(t), a), TEMP(t)) ~ rest);
+			return reorder(T.ESEQ(T.MOVE(T.TEMP(t), a), T.TEMP(t)) ~ rest);
 		}
 		else
 		{
-			Stm s1, s2;
-			Exp e;
+			T.Stm s1, s2;
+			T.Exp e;
 			tie[s1, e] <<= do_exp(a);
 			tie[s2, el] <<= reorder(rest);
 			if (commute(s2, e))
@@ -67,34 +65,34 @@ Tuple!(Stm, Exp[]) reorder(Exp[] el)
 			else
 			{
 				auto t = newTemp();
-				return tuple(seq(seq(s1, MOVE(TEMP(t), e)), s2), TEMP(t) ~ el);
+				return tuple(seq(seq(s1, T.MOVE(T.TEMP(t), e)), s2), T.TEMP(t) ~ el);
 			}
 		}
 	}
 }
 
-Tuple!(Stm, Exp) reorder_exp(EL, BLD)(EL el_, BLD build)
+Tuple!(T.Stm, T.Exp) reorder_exp(EL, BLD)(EL el_, BLD build)
 {
-	Stm   s;
-	Exp[] el;
-	tie[s, el] <<= reorder(cast(Exp[])el_);
+	T.Stm   s;
+	T.Exp[] el;
+	tie[s, el] <<= reorder(cast(T.Exp[])el_);
 	return tuple(s, callBuild(el, build));
 }
 
-Stm reorder_stm(EL, BLD)(EL el_, BLD build)
+T.Stm reorder_stm(EL, BLD)(EL el_, BLD build)
 {
-	Stm   s;
-	Exp[] el;
-	tie[s, el] <<= reorder(cast(Exp[])el_);
+	T.Stm   s;
+	T.Exp[] el;
+	tie[s, el] <<= reorder(cast(T.Exp[])el_);
 	return seq(s, callBuild(el, build));
 }
 
 private{
-	template isExp(E){ enum isExp = is(E == Exp); }
-	R callBuild(R, TE...)(Exp[] el, R delegate(TE) build)
+	template isExp(E){ enum isExp = is(E == T.Exp); }
+	R callBuild(R, TE...)(T.Exp[] el, R delegate(TE) build)
 	{
 		static assert(TE.length>=1);
-		static if (allSatisfy!(isExp, TE[0..$-1], Exp) && is(TE[$-1] == Exp[]))
+		static if (allSatisfy!(isExp, TE[0..$-1], T.Exp) && is(TE[$-1] == T.Exp[]))
 		{
 			static if (TE.length == 1) return build(el[0..$]);
 			static if (TE.length == 2) return build(el[0], el[1..$]);
@@ -111,74 +109,74 @@ private{
 	}
 }
 
-Tuple!(Stm, Exp) do_exp(Exp e)
+Tuple!(T.Stm, T.Exp) do_exp(T.Exp e)
 {
-	Stm		s;
-	Exp		a, b;
-	Exp[]	el;
-	BinOp	op;
+	T.Stm	s;
+	T.Exp	a, b;
+	T.Exp[]	el;
+	T.BinOp	op;
 	
 	return match(e,
-		BIN[&op,&a,&b],{
-			return reorder_exp([a,b], (Exp a, Exp b){ return BIN(op,a,b); });
+		T.BIN[&op,&a,&b],{
+			return reorder_exp([a,b], (T.Exp a, T.Exp b){ return T.BIN(op,a,b); });
 		},
-		MEM[&a],{
-			return reorder_exp([a], (Exp a){ return MEM(a); });
+		T.MEM[&a],{
+			return reorder_exp([a], (T.Exp a){ return T.MEM(a); });
 		},
-		ESEQ[&s,&e],{
+		T.ESEQ[&s,&e],{
 			auto s0 = do_stm(s);
 			tie[s, e] <<= do_exp(e);
 			return tuple(seq(s0, s), e);
 		},
-		CALL[&e,&el],{
-			return reorder_exp(e~el, (Exp e, Exp[] el){ return CALL(e,el); });
+		T.CALL[&e,&el],{
+			return reorder_exp(e~el, (T.Exp e, T.Exp[] el){ return T.CALL(e,el); });
 		},
 		_,{
-			return reorder_exp([], (Exp[] _){ return e; });
+			return reorder_exp([], (T.Exp[] _){ return e; });
 		}
 	);
 }
 
-Stm do_stm(Stm s)
+T.Stm do_stm(T.Stm s)
 {
 	Temp	r;
 	Label	t, f;
 	Label[]	ll;
-	Exp		e, a, b;
-	Exp[]	el;
-	Stm[]	sl;
-	Relop	rop;
+	T.Exp	e, a, b;
+	T.Exp[]	el;
+	T.Stm[]	sl;
+	T.Relop	rop;
 	
 	return match(s,
-		MOVE[TEMP[&r],CALL[&e,&el]],{
-			return reorder_stm(e~el, (Exp e, Exp[] el){ return MOVE(TEMP(r),CALL(e,el)); });
+		T.MOVE[T.TEMP[&r],T.CALL[&e,&el]],{
+			return reorder_stm(e~el, (T.Exp e, T.Exp[] el){ return T.MOVE(T.TEMP(r),T.CALL(e,el)); });
 		},
-		MOVE[TEMP[&r],&b],{
-			return reorder_stm([b], (Exp e){ return MOVE(TEMP(r), e); });
+		T.MOVE[T.TEMP[&r],&b],{
+			return reorder_stm([b], (T.Exp e){ return T.MOVE(T.TEMP(r), e); });
 		},
-		MOVE[MEM[&e],&b],{
-			return reorder_stm([e,b], (Exp e, Exp b){ return MOVE(MEM(e), b); });
+		T.MOVE[T.MEM[&e],&b],{
+			return reorder_stm([e,b], (T.Exp e, T.Exp b){ return T.MOVE(T.MEM(e), b); });
 		},
-		MOVE[ESEQ[&s,&e],&b],{
-			return do_stm(seq(s,MOVE(e,b)));
+		T.MOVE[T.ESEQ[&s,&e],&b],{
+			return do_stm(seq(s,T.MOVE(e,b)));
 		},
-		EXP[CALL[&e,&el]],{
-			return reorder_stm(e~el, (Exp e, Exp[] el){ return EXP(CALL(e,el)); });
+		T.EXP[T.CALL[&e,&el]],{
+			return reorder_stm(e~el, (T.Exp e, T.Exp[] el){ return T.EXP(T.CALL(e,el)); });
 		},
-		EXP[&e],{
-			return reorder_stm([e], (Exp e){ return EXP(e); });
+		T.EXP[&e],{
+			return reorder_stm([e], (T.Exp e){ return T.EXP(e); });
 		},
-		JUMP[&e, &ll],{
-			return reorder_stm([e], (Exp e){ return JUMP(e, ll); });
+		T.JUMP[&e, &ll],{
+			return reorder_stm([e], (T.Exp e){ return T.JUMP(e, ll); });
 		},
-		CJUMP[&rop,&a,&b,&t,&f],{
-			return reorder_stm([a,b], (Exp a, Exp b){ return CJUMP(rop,a,b,t,f); });
+		T.CJUMP[&rop,&a,&b,&t,&f],{
+			return reorder_stm([a,b], (T.Exp a, T.Exp b){ return T.CJUMP(rop,a,b,t,f); });
 		},
-		SEQ[&sl],{
+		T.SEQ[&sl],{
 			return seq(do_stm(sl[0]), do_stm(sl[1]));
 		},
 		_,{
-			return reorder_stm([], (Exp[] _){ return s; });
+			return reorder_stm([], (T.Exp[] _){ return s; });
 		}
 	);
 	

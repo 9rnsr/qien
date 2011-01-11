@@ -1,21 +1,20 @@
 ﻿module frame;
 
-static import tree;
-
 import sym, typ;
+import T = tree;
 import std.string, std.typecons;
 import debugs;
 
 import assem;
 
-tree.Exp frame_ptr;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
-tree.Exp return_val;	/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
-tree.Exp nilTemp;		/// IR内のプレースホルダとするための無効なテンポラリ
+T.Exp frame_ptr;	/// あるコンテキストにおけるフレームポインタを示すテンポラリ
+T.Exp return_val;	/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
+T.Exp nilTemp;		/// IR内のプレースホルダとするための無効なテンポラリ
 static this()
 {
-	frame_ptr  = tree.TEMP(newTemp("FP"));
-	return_val = tree.TEMP(newTemp("RV"));
-	nilTemp    = tree.TEMP(newTemp("Nil"));
+	frame_ptr  = T.TEMP(newTemp("FP"));
+	return_val = T.TEMP(newTemp("RV"));
+	nilTemp    = T.TEMP(newTemp("Nil"));
 }
 
 /**
@@ -84,7 +83,7 @@ public:
 	/**
 	 * フレームレベルでのprologue/epilogueコードを付加する
 	 */
-	tree.Stm procEntryExit1(tree.Stm stm)
+	T.Stm procEntryExit1(T.Stm stm)
 	{
 		return stm;	//todo
 	}
@@ -102,25 +101,25 @@ public:
 		scope m = new Munch();
 		return	I.ENTER(localSize)
 				~ m.munch([
-					tree.MOVE(
-						tree.VINT(frameSize),
-						tree.MEM(
-							tree.BIN(
-								tree.BinOp.ADD,
+					T.MOVE(
+						T.VINT(frameSize),
+						T.MEM(
+							T.BIN(
+								T.BinOp.ADD,
 								frame_ptr,
-								tree.VINT(1))))])
+								T.VINT(1))))])
 				~ instr ~ I.RET();
 	}
 	
 	/**
-	 * 現在のフレームポインタとSlotから、Slotの右辺値を取るtree.Expに変換する
+	 * 現在のフレームポインタとSlotから、Slotの右辺値を取るT.Expに変換する
 	 */
-	tree.Exp exp(tree.Exp fp, Slot slot)
+	T.Exp exp(T.Exp fp, Slot slot)
 	{
 		auto slot_size = slot.size;
 		assert(slot_size > 0);
 		
-		tree.Exp x;
+		T.Exp x;
 		
 		if (slot.tag == Slot.IN_FRAME)
 		{
@@ -132,15 +131,15 @@ public:
 			}
 			
 			return
-				tree.MEM(
-					tree.BIN(
-						tree.BinOp.ADD,
+				T.MEM(
+					T.BIN(
+						T.BinOp.ADD,
 						fp,
-						tree.VINT(disp)));
+						T.VINT(disp)));
 		}
 		else
 		{
-			return tree.TEMP(slot.temp);
+			return T.TEMP(slot.temp);
 		}
 	}
 }
@@ -211,10 +210,10 @@ class Fragment
 	enum Tag{ PROC, STR };
 	Tag tag;
 	union{
-		Tuple!(tree.Stm[], Frame)	p;
+		Tuple!(T.Stm[], Frame)	p;
 		Tuple!(Label, Constant!string)	s;
 	}
-	this(tree.Stm[] body_stm, Frame frame)
+	this(T.Stm[] body_stm, Frame frame)
 	{
 		tag = Tag.PROC;
 		p = tuple(body_stm, frame);

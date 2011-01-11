@@ -1,7 +1,7 @@
 ﻿module typ;
 
-import debugs;
 import std.algorithm, std.typecons;
+import debugs;
 
 
 alias ulong id_t;

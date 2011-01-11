@@ -2,10 +2,8 @@
 
 import lex;
 import parse : parse;
-import semant;
-import trans;
-import machine;
-import assem, frame;
+import semant, trans;
+import assem, frame, machine;
 import std.stdio;
 import debugs;
 
