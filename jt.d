@@ -21,49 +21,36 @@ int main(string[] args)
 	if (args.length == 2)
 	{
 		auto fname = args[1];
-		
-		auto t = T.toknize(fname);
-		
-		auto p = P.parse(t);
-		debugout("========");
-		debugout("parse = %s", p.toString);
-		
-		auto ty = S.semant(p);
-		debugout("========");
-		debugout("semant = %s", ty);
-		
-		auto fragments = trans.getResult().reverse;
-		debugout("semant.frag[] = ");
-		foreach (f; fragments){
-			writefln("%s : ", f.p[1].name);
-			f.debugOut();
-			debugout("----");
-		}
-		
-		debugout("========");
-		debugout("instr[] = ");
-		auto m = new M.Machine();
-		m.assemble((void delegate(Frame, M.Instruction[]) send)
-		{
-			foreach (f; fragments)	//表示の見易さのため反転
-			{
-				auto stms = f.p[0];
-				auto frame = f.p[1];
-				
-				scope m = new Munch();
-				auto instr = m.munch(stms);
-				
-				send(frame, instr);
-			}
-		});
-		
-		debugout("========");
-		debugout("run = ");
-		m.run();
-		
+		run_program(fname);
 	}
 	
 	return 0;
+}
+
+void run_program(string fname)
+{
+	auto t = T.toknize(fname);
+	
+	auto p = P.parse(t);
+	
+	auto ty = S.semant(p);
+	
+	auto m = new M.Machine();
+	m.assemble((void delegate(Frame, M.Instruction[]) send)
+	{
+		foreach (f; trans.getResult())
+		{
+			auto stms = f.p[0];
+			auto frame = f.p[1];
+			
+			scope m = new Munch();
+			auto instr = m.munch(stms);
+			
+			send(frame, instr);
+		}
+	});
+	
+	m.run();
 }
 
 
@@ -73,6 +60,28 @@ void usage()
 	writefln("  jt { options } [source_filename]");
 	writefln("");
 //	writefln("  -u,-unittest\trun unittests");
+
+	run_test();
 }
 
 
+import std.file, std.path, std.stdio;
+
+void run_test()
+{
+	foreach (fname; listdir("test"))
+	{
+		if (fname.getExt == "jt")
+		{
+			writefln("[] %s", fname);
+			
+			auto old_stdout = stdout;
+			scope(exit) stdout = old_stdout;
+			
+			auto outfile = addExt(`test\` ~ fname, "out.txt");
+			stdout = File(outfile, "w+");
+			
+			run_program(`test\` ~ fname);
+		}
+	}
+}

@@ -5,7 +5,7 @@ import trans;
 import debugs;
 import typecons.match, std.typecons;
 
-//debug = semant;
+debug = semant;
 
 /// 
 Ty semant(AstNode n)
@@ -21,6 +21,19 @@ Ty semant(AstNode n)
 	
 	trans.procEntryExit(trans.outermost, ex);
 	
+	debug(semant)
+	{
+		debugout("========");
+		debugout("semant = %s", ty);
+		
+		debugout("semant.frag[] = ");
+		foreach (f; trans.getResult()){
+			debugout("----");
+			debugout("%s : ", f.p[1].name);
+			f.debugOut();
+		}
+	}
+
 	return ty;
 }
 
@@ -142,9 +155,9 @@ out(r){ assert(r.field[1] !is null); }body
 			if (auto entry = n.sym in venv)
 			{
 				auto inst_t = tenv.instantiate(entry.ty);
-				debug(semant) debugout("id %s -> %s", n.sym, entry.ty);
-				debug(semant) debugout("   instantiate -> %s", inst_t);
-			//	debug(semant) debugout("   venv = %s", venv);
+//				debug(semant) debugout("id %s -> %s", n.sym, entry.ty);
+//				debug(semant) debugout("   instantiate -> %s", inst_t);
+//			//	debug(semant) debugout("   venv = %s", venv);
 				
 				return tuple(inst_t, trans.getVar(level, entry.access));
 			}
@@ -270,11 +283,11 @@ out(r){ assert(r.field[1] !is null); }body
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
-				debug(semant) debugout("fun tr = %s", tr);
-				debug(semant) debugout("    tf = %s", tf);
-				debug(semant) debugout("    tb = %s", tb);
-				debug(semant) debugout("    tf2 = %s", tf2);
-				debug(semant) debugout("    venv = %s", venv);
+//				debug(semant) debugout("fun tr = %s", tr);
+//				debug(semant) debugout("    tf = %s", tf);
+//				debug(semant) debugout("    tb = %s", tb);
+//				debug(semant) debugout("    tf2 = %s", tf2);
+//				debug(semant) debugout("    venv = %s", venv);
 				
 				trans.procEntryExit(fn_level, xb);
 				
@@ -313,8 +326,8 @@ out(r){ assert(r.field[1] !is null); }body
 					if (!venv.add(id.sym, acc, tenv.generalize(ty)))
 						error(n.pos, id.toString ~ " is already defined");
 				}
-				debug(semant) debugout("var ty = %s", ty);
-				debug(semant) debugout("    venv = %s", venv);
+//				debug(semant) debugout("var ty = %s", ty);
+//				debug(semant) debugout("    venv = %s", venv);
 				
 				//初期化式の結果を代入
 				return tuple(tenv.Unit,
@@ -371,7 +384,7 @@ void findEscape(VarEnv outermost_venv, AstNode n)
 				if (entry.depth < depth)
 				{
 					entry.escape = true;
-					writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
+					debugout("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
 				}
 			}
 			else

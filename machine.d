@@ -1,13 +1,12 @@
 module machine;
 
 import sym;
-import assem;
-import std.stdio;
-import std.string;
-
 import frame;
+import assem;
+import std.string;
+import debugs;
 
-//debug = machine;
+debug = machine;
 
 alias long Word;
 alias ulong Ptr;
@@ -181,6 +180,8 @@ public:
 	
 	void assemble(void delegate(void delegate(Frame, Instruction[]) send) dg)
 	{
+		debug(machine) debugout("========");
+		debug(machine) debugout("instr[] = ");
 		dg(&addInstructions);
 	}
 
@@ -193,13 +194,16 @@ public:
 
 	void run()
 	{
+		debug(machine) debugout("========");
+		debug(machine) debugout("run = ");
+
 		void printStack()
 		{
-			debug(machine) writefln("   stack = %(%04X %)", stack);
+			debug(machine) debugout("   stack = %(%04X %)", stack);
 		}
 		void printRegs()
 		{
-			debug(machine) writefln("    regs = ep:%08X, cp:%08X, sp:%08X", ep, cp, sp);
+			debug(machine) debugout("    regs = ep:%08X, cp:%08X, sp:%08X", ep, cp, sp);
 		}
 		
 		heap = new Heap();
@@ -214,7 +218,7 @@ public:
 		ep = 2;
 		cp = 0;
 		
-		//debug(machine) writefln("code = %(%08X %)", code);
+		//debug(machine) debugout("code = %(%08X %)", code);
 		
 		printStack();
 		
@@ -243,13 +247,13 @@ public:
 				break;
 			default:
 			case HLT:
-				debug(machine) writefln("%08x : HLT", save_pc);
+				debug(machine) debugout("%08x : HLT", save_pc);
 				pc = code.length;
 				break;
 			
 			case LDA:
 				//auto adr = getAddr();
-				debug(machine) writefln("%08x : LDA R%s:%s <- [@ R%s:%s]:%s",
+				debug(machine) debugout("%08x : LDA R%s:%s <- [@ R%s:%s]:%s",
 						save_pc,
 						i.a.dst, regs[i.a.dst], 
 						i.a.src, regs[i.a.src], memory(regs[i.a.src])[0]);
@@ -257,7 +261,7 @@ public:
 				regs[i.a.dst] = memory(regs[i.a.src])[0];
 				break;
 			case LDB:
-				debug(machine) writefln("%08x : LDB R%s:%s <- [fp:%s %s %s]:%s",
+				debug(machine) debugout("%08x : LDB R%s:%s <- [fp:%s %s %s]:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst], 
 						ep, i.l.disp<0?"":"+", i.l.disp, stack[cast(size_t)ep + i.l.disp]);
@@ -265,14 +269,14 @@ public:
 				break;
 			case LDI:
 				auto imm = getImm();
-				debug(machine) writefln("%08x : LDI R%s:%s <- imm:%s",
+				debug(machine) debugout("%08x : LDI R%s:%s <- imm:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst],
 						imm);
 				regs[i.l.dst] = imm;
 				break;
 			case POP:
-				debug(machine) writefln("%08x : POP [--sp] -> R%s:%s",
+				debug(machine) debugout("%08x : POP [--sp] -> R%s:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst]);
 				regs[i.l.dst] = stack[$-1];
@@ -286,7 +290,7 @@ public:
 				assert(0);
 				break;
 			case STB:
-				debug(machine) writefln("%08x : STB R%s:%s -> [fp:%s %s %s]",
+				debug(machine) debugout("%08x : STB R%s:%s -> [fp:%s %s %s]",
 						save_pc,
 						i.s.src, regs[i.s.src],
 						ep, i.s.disp<0?"":"+", i.s.disp);
@@ -295,7 +299,7 @@ public:
 				printStack();
 				break;
 			case PUSH:
-				debug(machine) writefln("%08x : PUSH R%s:%s -> [sp++]",
+				debug(machine) debugout("%08x : PUSH R%s:%s -> [sp++]",
 						save_pc,
 						i.s.src, regs[i.s.src]);
 				stack.length = stack.length + 1;
@@ -305,14 +309,14 @@ public:
 				break;
 			
 			case MOV:
-				debug(machine) writefln("%08x : MOV R%s:%s -> R%s:%s",
+				debug(machine) debugout("%08x : MOV R%s:%s -> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.dst, regs[i.a.dst]);
 				regs[i.a.dst] = regs[i.a.src];
 				break;
 			case ADD:
-				debug(machine) writefln("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
+				debug(machine) debugout("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -320,7 +324,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] + regs[i.a.acc];
 				break;
 			case SUB:
-				debug(machine) writefln("%08x : SUB R%s:%s - R%s:%s-> R%s:%s",
+				debug(machine) debugout("%08x : SUB R%s:%s - R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -328,7 +332,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] - regs[i.a.acc];
 				break;
 			case MUL:
-				debug(machine) writefln("%08x : MUL R%s:%s * R%s:%s-> R%s:%s",
+				debug(machine) debugout("%08x : MUL R%s:%s * R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -336,7 +340,7 @@ public:
 				regs[i.a.dst] = regs[i.a.src] * regs[i.a.acc];
 				break;
 			case DIV:
-				debug(machine) writefln("%08x : DIV R%s:%s / R%s:%s-> R%s:%s",
+				debug(machine) debugout("%08x : DIV R%s:%s / R%s:%s-> R%s:%s",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.acc, regs[i.a.acc],
@@ -346,7 +350,7 @@ public:
 			
 			case CALL:
 				//auto adr = getAddr();
-				debug(machine) writefln("%08X : CALL R%s:%s (pc=%08X)",
+				debug(machine) debugout("%08X : CALL R%s:%s (pc=%08X)",
 						save_pc,
 						i.a.src, regs[i.a.src],
 						label_to_pc[cast(size_t)regs[i.a.src]]);
@@ -361,7 +365,7 @@ public:
 				break;
 			case RET:
 				printRegs();
-				debug(machine) writefln("%08X : RET (ret_pc=%08X, ret_ep=%08X)",
+				debug(machine) debugout("%08X : RET (ret_pc=%08X, ret_ep=%08X)",
 						save_pc,
 						stack[cp+0],
 						stack[cp+1]);
@@ -375,7 +379,7 @@ public:
 				printStack();
 				break;
 			case PUSH_CONT:
-				debug(machine) writefln("%08X : PUSH_CONT",
+				debug(machine) debugout("%08X : PUSH_CONT",
 						save_pc);
 				
 				cp = sp;
@@ -385,7 +389,7 @@ public:
 				printStack();
 				break;
 			case PUSH_ENV:
-				debug(machine) writefln("%08X : PUSH_ENV",
+				debug(machine) debugout("%08X : PUSH_ENV",
 						save_pc);
 				
 				auto cont_ep = &(ep());
@@ -408,7 +412,7 @@ public:
 				printStack();
 				break;
 			case ENTER:
-				debug(machine) writefln("%08X : ENTER %s",
+				debug(machine) debugout("%08X : ENTER %s",
 						save_pc,
 						i.l.disp);
 				
@@ -419,19 +423,19 @@ public:
 			}
 		}
 		
-		debug(machine) writefln("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
+		debug(machine) debugout("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
 	}
 
 private:
 	void addInstructions(Frame frame, Instruction[] instr)
 	{
 		label_to_pc[frame.name.num] = code.length;
-		debug(machine) writefln("label to pc : %s(@%s) -> %08X",
+		debug(machine) debugout("label to pc : %s(@%s) -> %08X",
 			frame.name, frame.name.num, code.length);
 		
 		foreach (i; frame.procEntryExit2(instr))
 		{
-			debug(machine) writefln("addInstruction %08X : %s", code.length, i);
+			debug(machine) debugout("addInstruction %08X : %s", code.length, i);
 			code ~= i.assemble();
 		}
 	}

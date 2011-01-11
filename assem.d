@@ -47,7 +47,7 @@ private:
 
 	void emit(Instruction instr)
 	{
-		//writefln("emit : %s", instr);
+		//debugout("emit : %s", instr);
 		code ~= instr;
 	}
 
@@ -67,7 +67,7 @@ private:
 		long		n;
 		BinOp		binop;
 		
-		debug(munch) writefln("* munchExp : exp =");
+		debug(munch) debugout("* munchExp : exp =");
 		debug(munch) debugout(exp);
 		return match(exp,
 			VINT[&n],{
@@ -149,7 +149,7 @@ private:
 		tree.Exp	e, e1 ,e2;
 		Label		l;
 		
-		debug(munch) writefln("* munchStm : stm = ");
+		debug(munch) debugout("* munchStm : stm = ");
 		debug(munch) debugout(stm);
 		match(stm,
 			MOVE[&e, MEM[BIN[BinOp.ADD, frame_ptr, VINT[&disp]]]],{
@@ -228,41 +228,3 @@ private:
 		);
 	}
 }
-
-/+
-/**
- *
- */
-class Fragment
-{
-	enum Tag{ PROC, STR };
-	Tag tag;
-	union{
-		Tuple!(Instruction[])		p;
-		Tuple!(Label, Constant!string)	s;
-	}
-	this(Instruction[] instr)
-	{
-		tag = Tag.PROC;
-		p = tuple(instr);
-	}
-	this(Label label, Constant!string str)
-	{
-		tag = Tag.STR;
-		s = tuple(label, str);
-	}
-	
-	void debugOut()
-	{
-		final switch (tag)
-		{
-		case Tag.PROC:
-			foreach (instr; p.field[0])
-				writefln("%s", instr);
-			break;
-		case Tag.STR:
-			return debugout(format("String: %s, %s", s.field[0], s.field[1]));
-		}
-	}
-}
-+/

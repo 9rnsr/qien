@@ -3,13 +3,22 @@
 public import tok, sym;
 import debugs;
 
+//debug = parse;
 
 /// 
 AstNode parse(Toknizer toknizer)
 {
 	scope ctxt = new ParseContext(toknizer);
 	
-	return ctxt.parse();
+	auto ast = ctxt.parse();
+	
+	debug(parse)
+	{
+		debugout("========");
+		debugout("parse = %s", ast.toString);
+	}
+
+	return ast;
 }
 
 

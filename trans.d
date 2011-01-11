@@ -4,7 +4,7 @@ import sym, typ, tree;
 import frame;		// 実行環境は仮想機械(VM)を使用する
 import canon;
 import debugs;
-import std.algorithm, std.array;
+import std.algorithm, std.range;
 
 
 /**
@@ -109,9 +109,9 @@ static Fragment[] frag;
 /**
  * 
  */
-Fragment[] getResult()
+Retro!(Fragment[]) getResult()
 {
-	return frag;
+	return retro(frag);
 }
 
 /**
