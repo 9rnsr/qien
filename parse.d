@@ -1,6 +1,6 @@
 ﻿module parse;
 
-public import tok, sym;
+public import lex, sym;
 import debugs;
 
 //debug = parse;

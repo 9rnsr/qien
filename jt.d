@@ -1,10 +1,10 @@
 ﻿module jt;
 
-public import T = tok;
-public import P = parse;
-public import S = semant;
-public import M = machine;
+import lex;
+import parse : parse;
+import semant;
 import trans;
+import machine;
 import assem, frame;
 import std.stdio;
 import debugs;
@@ -29,14 +29,12 @@ int main(string[] args)
 
 void run_program(string fname)
 {
-	auto t = T.toknize(fname);
+	auto tok = toknize(fname);
+	auto ast = parse(tok);
+	auto typ = semant.semant(ast);
 	
-	auto p = P.parse(t);
-	
-	auto ty = S.semant(p);
-	
-	auto m = new M.Machine();
-	m.assemble((void delegate(Frame, M.Instruction[]) send)
+	auto m = new Machine();
+	m.assemble((void delegate(Frame, Instruction[]) send)
 	{
 		foreach (f; trans.getResult())
 		{

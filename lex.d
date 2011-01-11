@@ -1,4 +1,4 @@
-﻿module tok;
+﻿module lex;
 
 import sym;
 import file.peek;

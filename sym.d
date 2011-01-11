@@ -1,6 +1,6 @@
 ﻿module sym;
 
-public import tok;
+public import lex;
 import std.conv, std.string;
 
 
