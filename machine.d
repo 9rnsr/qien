@@ -155,7 +155,7 @@ class Machine
 private:
 	const(uint)[]	code;
 	long[]			stack;
-	long[3+256]		regs;	// todo 3 == frame_ptr+return_val+nilTemp
+	long[3+256]		regs;	// todo 3 == FP+RV+NIL
 	size_t			fp;
 	size_t			sp() @property { return stack.length; };
 	size_t			pc;

@@ -179,7 +179,7 @@ Ex immediate(RealT v)
  */
 Ex getVar(Level level, Access access)
 {
-	auto slink = frame_ptr;
+	auto slink = T.TEMP(FP);
 //	debugout("* %s", slink);
 	while (level !is access.level)
 	{
@@ -196,7 +196,7 @@ Ex getVar(Level level, Access access)
 Ex getFun(Level level, Level bodylevel, Label label)
 {
 	auto funlevel = bodylevel.parent;
-	auto slink = frame_ptr;
+	auto slink = T.TEMP(FP);
 	while (level !is funlevel)
 	{
 		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
@@ -258,7 +258,7 @@ Ex sequence(Ex s1, Ex s2)
 
 Ex ret(Ex x)
 {
-	return new Ex(T.MOVE(unEx(x), return_val));
+	return new Ex(T.MOVE(unEx(x), T.TEMP(RV)));
 }
 
 /**
@@ -270,7 +270,7 @@ Ex ret(Ex x)
 Ex makeFunction(Level level, Level bodylevel, Label label)
 {
 	return new Ex(
-		T.VFUN(frame_ptr, label));	// 現在のframe_ptrと関数本体のラベルの組＝関数値
+		T.VFUN(T.TEMP(FP), label));	// 現在のFPと関数本体のラベルの組＝関数値
 }
 
 /**
@@ -282,8 +282,8 @@ Ex makeFunction(Level level, Level bodylevel, Label label)
 Ex makeClosure(Level level, Level bodylevel, Label label)
 {
 	return new Ex(T.ESEQ(
-		T.CLOS(label),				// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==frame_ptrをすり替える)
-		T.VFUN(frame_ptr, label)));	// 現在のframe_ptrとクロージャ本体のラベルの組＝クロージャ値
+		T.CLOS(label),					// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==FPをすり替える)
+		T.VFUN(T.TEMP(FP), label)));	// 現在のFPとクロージャ本体のラベルの組＝クロージャ値
 }
 
 /**
@@ -291,7 +291,7 @@ Ex makeClosure(Level level, Level bodylevel, Label label)
  */
 Ex assign(Level level, Access access, Ex value)
 {
-	auto slink = frame_ptr;
+	auto slink = T.TEMP(FP);
 	while (level !is access.level)
 	{
 		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
@@ -330,7 +330,7 @@ T.Stm unNx(Ex exp)
 	final switch (exp.tag)
 	{
 	case Ex.Tag.EX:
-		return T.MOVE(exp.ex, nilTemp);
+		return T.MOVE(exp.ex, T.TEMP(NIL));
 	case Ex.Tag.NX:
 		return exp.nx;
 	case Ex.Tag.CX:

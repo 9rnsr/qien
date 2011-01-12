@@ -7,14 +7,14 @@ import debugs;
 
 import assem;
 
-T.Exp frame_ptr;	/// あるコンテキストにおけるフレームポインタを示すテンポラリ
-T.Exp return_val;	/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
-T.Exp nilTemp;		/// IR内のプレースホルダとするための無効なテンポラリ
+Temp FP;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
+Temp RV;		/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
+Temp NIL;		/// IR内のプレースホルダとするための無効なテンポラリ
 static this()
 {
-	frame_ptr  = T.TEMP(newTemp("FP"));
-	return_val = T.TEMP(newTemp("RV"));
-	nilTemp    = T.TEMP(newTemp("Nil"));
+	FP  = newTemp("FP");
+	RV  = newTemp("RV");
+	NIL = newTemp("NIL");
 }
 
 /**
@@ -106,7 +106,7 @@ public:
 						T.MEM(
 							T.BIN(
 								T.BinOp.ADD,
-								frame_ptr,
+								T.TEMP(FP),
 								T.VINT(1))))])
 				~ instr ~ I.RET();
 	}
@@ -114,7 +114,7 @@ public:
 	/**
 	 * 現在のフレームポインタとSlotから、Slotの右辺値を取るT.Expに変換する
 	 */
-	T.Exp exp(T.Exp fp, Slot slot)
+	T.Exp exp(T.Exp slink, Slot slot)
 	{
 		auto slot_size = slot.size;
 		assert(slot_size > 0);
@@ -134,7 +134,7 @@ public:
 				T.MEM(
 					T.BIN(
 						T.BinOp.ADD,
-						fp,
+						slink,
 						T.VINT(disp)));
 		}
 		else

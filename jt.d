@@ -71,11 +71,11 @@ void run_test()
 		{
 			writefln("[] %s", fname);
 			
-			auto old_stdout = stdout;
-			scope(exit) stdout = old_stdout;
-			
 			auto outfile = addExt(`test\` ~ fname, "out.txt");
+			
+			auto old_stdout = stdout;
 			stdout = File(outfile, "w+");
+			scope(exit) stdout = old_stdout;
 			
 			run_program(`test\` ~ fname);
 		}
