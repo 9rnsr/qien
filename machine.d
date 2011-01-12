@@ -3,6 +3,7 @@ module machine;
 import sym;
 import frame;
 import assem;
+import typecons.tagunion;
 import std.string;
 import debugs;
 
@@ -177,7 +178,7 @@ public:
 		code = c;
 	}
 	
-	void assemble(void delegate(void delegate(Frame, Instruction[]) send) dg)
+	void assemble(void delegate(void delegate(Frame, Instr[]) send) dg)
 	{
 		debug(machine) debugout("========");
 		debug(machine) debugout("instr[] = ");
@@ -426,7 +427,7 @@ public:
 	}
 
 private:
-	void addInstructions(Frame frame, Instruction[] instr)
+	void addInstructions(Frame frame, Instr[] instr)
 	{
 		label_to_pc[frame.name.num] = code.length;
 		debug(machine) debugout("label to pc : %s(@%s) -> %08X",
@@ -435,7 +436,13 @@ private:
 		foreach (i; frame.procEntryExit3(instr))
 		{
 			debug(machine) debugout("addInstruction %08X : %s", code.length, i);
-			code ~= i.assemble();
+			Instruction mi;
+			code ~= 
+				match(i,
+					Instr.OPE[&mi, $],{ return mi.assemble(); },
+					Instr.LBL[&mi, $],{ return mi.assemble(); },
+					Instr.MOV[&mi, $],{ return mi.assemble(); }
+				);
 		}
 	}
 

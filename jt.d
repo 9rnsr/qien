@@ -32,7 +32,7 @@ void run_program(string fname)
 	auto typ = transProg(ast);
 	
 	auto m = new Machine();
-	m.assemble((void delegate(Frame, Instruction[]) send)
+	m.assemble((void delegate(Frame, Instr[]) send)
 	{
 		foreach (f; trans.getResult())
 		{

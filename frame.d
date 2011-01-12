@@ -7,14 +7,18 @@ import debugs;
 
 import assem;
 
+Temp CP;
 Temp FP;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
 Temp RV;		/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
 Temp SP;		/// 
 Temp NIL;		/// IR内のプレースホルダとするための無効なテンポラリ
+Label ReturnLabel;
 static this()
 {
+	CP  = newTemp("CP");
 	FP  = newTemp("FP");
 	RV  = newTemp("RV");
+	SP  = newTemp("SP");
 	NIL = newTemp("NIL");
 }
 
@@ -88,11 +92,11 @@ public:
 	{
 		return stm;	//todo
 	}
-	Instruction[] procEntryExit2(Instruction[] instr)
+	Instr[] procEntryExit2(Instr[] instr)
 	{
 		assert(0);
 	}
-	Instruction[] procEntryExit3(Instruction[] instr)
+	Instr[] procEntryExit3(Instr[] instr)
 	{
 		size_t frameSize = 0;
 		size_t localSize = 0;
@@ -104,7 +108,7 @@ public:
 		}
 		
 		scope m = new Munch();
-		return	I.ENTER(localSize)
+		return	Instr.OPE(I.ENTER(localSize), null, [SP], null)
 				~ m.munch([
 					T.MOVE(
 						T.VINT(frameSize),
@@ -113,7 +117,8 @@ public:
 								T.BinOp.ADD,
 								T.TEMP(FP),
 								T.VINT(1))))])
-				~ instr ~ I.RET();
+				~ instr
+				~ Instr.OPE(I.RET(), [], [CP, FP, SP], [ReturnLabel]);
 	}
 	
 	/**
