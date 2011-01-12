@@ -29,7 +29,7 @@ void run_program(string fname)
 {
 	auto tok = toknize(fname);
 	auto ast = parse(tok);
-	auto typ = semant.semant(ast);
+	auto typ = transProg(ast);
 	
 	auto m = new Machine();
 	m.assemble((void delegate(Frame, Instruction[]) send)

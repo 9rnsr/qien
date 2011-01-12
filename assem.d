@@ -3,34 +3,33 @@
 import sym;
 import frame;
 import T = tree;
-import typecons.match;
+import typecons.match, typecons.tagunion;
 import std.conv, std.string, std.stdio;
 import std.metastrings;
 import debugs;
 
 public import machine;
+alias machine.Instruction I;
 
 //debug = munch;
 
-/+
-class Instruction
+class Instr
 {
 	mixin TagUnion!(
-		"OPE",	string, Temp[], Temp[], Label[],
-		"LBL",	string, Label,
-		"MOV",	Temp, Temp
+		"OPE",	machine.Instruction, Temp[], Temp[], Label[],
+		"LBL",	machine.Instruction, Label,
+		"MOV",	machine.Instruction, Temp, Temp
 	);
 	string toString()
 	{
 		final switch (tag)
 		{
-		case Tag.OPE:	""
+		case Tag.OPE:	return "OPE";
+		case Tag.LBL:	return "LBL";
+		case Tag.MOV:	return "MOV";
 		}
 	}
 }
-alias Instruction I;
-+/
-alias Instruction I;
 
 class Munch
 {

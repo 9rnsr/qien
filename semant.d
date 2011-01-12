@@ -8,7 +8,7 @@ import typecons.match, std.typecons;
 debug = semant;
 
 /// 
-Ty semant(AstNode n)
+Ty transProg(AstNode n)
 {
 	auto tenv = trans.outermost_tenv;
 	auto venv = new VarEnv();
@@ -24,9 +24,9 @@ Ty semant(AstNode n)
 	debug(semant)
 	{
 		debugout("========");
-		debugout("semant = %s", ty);
+		debugout("transProg = %s", ty);
 		
-		debugout("semant.frag[] = ");
+		debugout("transProg.frag[] = ");
 		foreach (f; trans.getResult()){
 			debugout("----");
 			debugout("%s : ", f.p[1].name);

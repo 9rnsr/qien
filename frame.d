@@ -9,6 +9,7 @@ import assem;
 
 Temp FP;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
 Temp RV;		/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
+Temp SP;		/// 
 Temp NIL;		/// IR内のプレースホルダとするための無効なテンポラリ
 static this()
 {
@@ -88,6 +89,10 @@ public:
 		return stm;	//todo
 	}
 	Instruction[] procEntryExit2(Instruction[] instr)
+	{
+		assert(0);
+	}
+	Instruction[] procEntryExit3(Instruction[] instr)
 	{
 		size_t frameSize = 0;
 		size_t localSize = 0;

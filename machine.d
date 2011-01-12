@@ -432,7 +432,7 @@ private:
 		debug(machine) debugout("label to pc : %s(@%s) -> %08X",
 			frame.name, frame.name.num, code.length);
 		
-		foreach (i; frame.procEntryExit2(instr))
+		foreach (i; frame.procEntryExit3(instr))
 		{
 			debug(machine) debugout("addInstruction %08X : %s", code.length, i);
 			code ~= i.assemble();
