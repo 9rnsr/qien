@@ -13,11 +13,11 @@ alias ulong Ptr;
 
 /**
 *	LDA		[@src]		-> $dst		[op:8][dst:8][---:8][src:8]
-	LDB		[fp+n]		-> $dst		[op:8][dst:8][     disp:16]
+	LDB		[ep+n]		-> $dst		[op:8][dst:8][     disp:16]
 	LDI		#imm		-> $dst		[op:8][dst:8][---------:16] [imm :64]
 	
 	STA		$src		-> @addr	[op:8][src:8][---------:16] [addr:64]
-	STB		$src		-> [fp+n]	[op:8][src:8][     disp:16]
+	STB		$src		-> [ep+n]	[op:8][src:8][     disp:16]
 	
 	MOV		$src		-> $dst		[op:8][dst:8][---:8][src:8]
 	ADD		$src ? $acc	-> $dst		[op:8][dst:8][acc:8][src:8]
@@ -97,12 +97,12 @@ class Instruction
 		case HLT:	return "HLT";
 		
 		case LDA:	return format("LDA R%s <- [@%X]",    i.a.dst, i.a.src);
-		case LDB:	return format("LDB R%s <- [fp%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
+		case LDB:	return format("LDB R%s <- [ep%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
 		case LDI:	return format("LDI R%s <- #%s",      i.l.dst, imm);
 		case POP:	return format("POP R%s <- [--sp]",   i.l.dst);
 		
 		case STA:	return format("STA R%s -> @%X",      i.s.src, adr);
-		case STB:	return format("STB R%s -> [fp%s%s]", i.s.src, i.s.disp<0?"":"+", i.s.disp);
+		case STB:	return format("STB R%s -> [ep%s%s]", i.s.src, i.s.disp<0?"":"+", i.s.disp);
 		case PUSH:	return format("PUSH R%s -> [sp++]",  i.s.src);
 		
 		case MOV:	return format("MOV R%s -> R%s",       i.a.src,          i.a.dst);
@@ -156,11 +156,10 @@ private:
 	const(uint)[]	code;
 	long[]			stack;
 	long[3+256]		regs;	// todo 3 == FP+RV+NIL
-	size_t			fp;
 	size_t			sp() @property { return stack.length; };
 	size_t			pc;
-	ref ulong		ep() @property { return *cast(ulong*)&regs[0]; }	// one of the normal registers
-	void			ep(ulong n) @property { *cast(ulong*)&regs[0] = n; }
+	ref ulong		ep() @property { return *cast(ulong*)&regs[FP.num]; }	// one of the normal registers
+	ref ulong		ep(ulong n) @property { return ep() = n, ep(); }
 	size_t			cp;
 	Heap			heap;
 	
@@ -261,7 +260,7 @@ public:
 				regs[i.a.dst] = memory(regs[i.a.src])[0];
 				break;
 			case LDB:
-				debug(machine) debugout("%08x : LDB R%s:%s <- [fp:%s %s %s]:%s",
+				debug(machine) debugout("%08x : LDB R%s:%s <- [ep:%s %s %s]:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst], 
 						ep, i.l.disp<0?"":"+", i.l.disp, stack[cast(size_t)ep + i.l.disp]);
@@ -290,7 +289,7 @@ public:
 				assert(0);
 				break;
 			case STB:
-				debug(machine) debugout("%08x : STB R%s:%s -> [fp:%s %s %s]",
+				debug(machine) debugout("%08x : STB R%s:%s -> [ep:%s %s %s]",
 						save_pc,
 						i.s.src, regs[i.s.src],
 						ep, i.s.disp<0?"":"+", i.s.disp);
