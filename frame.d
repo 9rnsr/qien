@@ -1,24 +1,24 @@
 ﻿module frame;
 
-import sym, typ;
+import sym;
 import T = tree;
-import std.string, std.typecons;
+import std.algorithm, std.string, std.typecons;
 import debugs;
 
 import assem;
 
-Temp CP;
-Temp FP;		/// あるコンテキストにおけるフレームポインタを示すテンポラリ
-Temp RV;		/// あるコンテキストにおける返値設定先を示すテンポラリ(TODO)
-Temp SP;		/// 
-Temp NIL;		/// IR内のプレースホルダとするための無効なテンポラリ
+Temp CP;	// Continuation Pointer
+Temp FP;	// Frame Pointer
+Temp RV;	// Return Value
+Temp SP;	// Stack Pointer
+Temp NIL;	// Nil Temporary (do not have real memory)
 Label ReturnLabel;
 static this()
 {
 	CP  = newTemp("CP");
 	FP  = newTemp("FP");
-	RV  = newTemp("RV");
 	SP  = newTemp("SP");
+	RV  = newTemp("RV");
 	NIL = newTemp("NIL");
 }
 
@@ -27,10 +27,6 @@ static this()
  */
 enum size_t wordSize = 4;
 
-/**
- * Frame.formals内、静的Linkがあるインデックス
- */
-enum size_t static_link_index = 0;
 
 /**
  * VM向けFrame
@@ -40,13 +36,17 @@ class Frame
 private:
 	Label namelabel;
 	Slot[] slotlist;
-	size_t local_start;
 	
-	this(Label label/*, bool[] escapes*/)
+	this(Label label, bool[] escapes)
 	{
 		namelabel = label;
-	//	foreach (esc; escapes)
-	//		allocLocal(esc);		//formalsを割り当て
+		allocLocal(true/*escapes[0]*/);
+		allocLocal(true);				// frame  size用のSlotを追加
+		formals[1].setSize(1);	// set size of frameSize
+		foreach (esc; escapes[1..$])
+		{
+			allocLocal(true/*esc*/);	// formalsを割り当て	// 引数は常にescape
+		}
 	}
 
 public:
@@ -73,16 +73,11 @@ public:
 	 * Return:
 	 *   割り当てたSlotを返す
 	 */
-	Slot allocLocal(Ty ty, bool escape)
+	Slot allocLocal(bool escape)
 	{
-		auto slot = new Slot(this, ty, escape);
+		auto slot = new Slot(this, escape);
 		slotlist ~= slot;
 		return slot;
-	}
-	
-	void procEntry()
-	{
-		local_start = slotlist.length;
 	}
 	
 	/**
@@ -99,17 +94,16 @@ public:
 	Instr[] procEntryExit3(Instr[] instr)
 	{
 		size_t frameSize = 0;
-		size_t localSize = 0;
-		foreach (i,slot; slotlist)
-		{
-			frameSize += slot.size;
-			if (i >= local_start && slot.tag == Slot.IN_FRAME)
-				localSize += slot.size;
-		}
+		foreach (slot; slotlist)
+			frameSize += slot.len;
 		
 		scope m = new Munch();
-		return	Instr.OPE(I.ENTER(localSize), null, [SP], null)
-				~ m.munch([
+		return	m.munch([
+					// FP + frameSize -> SP
+					T.MOVE(
+						T.BIN(T.BinOp.ADD, T.VINT(frameSize), T.TEMP(FP)),
+						T.TEMP(SP)),
+					// frameSize -> [FP + 1]
 					T.MOVE(
 						T.VINT(frameSize),
 						T.MEM(
@@ -126,19 +120,12 @@ public:
 	 */
 	T.Exp exp(T.Exp slink, Slot slot)
 	{
-		auto slot_size = slot.size;
-		assert(slot_size > 0);
-		
 		T.Exp x;
 		
 		if (slot.tag == Slot.IN_FRAME)
 		{
-			size_t disp = 0;
-			foreach (s; slotlist)
-			{
-				if (s is slot) break;
-				disp += s.size;
-			}
+			auto disp = std.algorithm.indexOf!"a is b"(slotlist, slot);
+			assert(disp != -1);
 			
 			return
 				T.MEM(
@@ -157,18 +144,9 @@ public:
 /**
  * 新しいFrameを生成する
  */
-Frame newFrame(Label label/*, bool[] formals*/)
+Frame newFrame(Label label, bool[] formals)
 {
-	return new Frame(label/*, formals*/);
-}
-
-size_t getTypeSize(Ty ty)
-{
-	assert(ty.isInferred);
-	if (ty.isFunction)
-		return 2;
-	else
-		return 1;
+	return new Frame(label, formals);
 }
 
 /**
@@ -177,7 +155,6 @@ size_t getTypeSize(Ty ty)
 class Slot
 {
 private:
-	Ty type;
 	enum{ IN_REG, IN_FRAME } int tag;
 	union{
 		size_t index;			// IN_FRAME: Slotリスト先頭からのindex
@@ -185,9 +162,8 @@ private:
 	}
 	size_t len;
 
-	this(Frame fr, Ty ty, bool esc)
+	this(Frame fr, bool esc)
 	{
-		type = ty;
 		if (esc)
 		{
 			tag = IN_FRAME;
@@ -200,15 +176,10 @@ private:
 		}
 	}
 
-	size_t size() @property
+public:
+	void setSize(size_t n)
 	{
-		if (len == 0)
-			len = .getTypeSize(type);
-		
-		if (tag == IN_REG)
-			assert(len == 1);
-		
-		return len;
+		len = n;
 	}
 }
 

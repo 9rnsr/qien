@@ -109,7 +109,7 @@ private:
 				
 				auto label = result((Temp r){ emit(Instr.OPE(I.LDB(cast(int)n+0, r), [FP], [r], [])); });
 				auto slink = result((Temp r){ emit(Instr.OPE(I.LDB(cast(int)n+1, r), [FP], [r], [])); });
-				auto fsize = result((Temp r){ emit(Instr.OPE(I.LDI(0xFFFF,       r), [],   [r], [])); });
+				auto fsize = result((Temp r){ emit(Instr.OPE(I.LDI(0xBEEF,       r), [],   [r], [])); });
 				emit(Instr.OPE(I.PUSH(slink), [SP,slink], [], []));
 				emit(Instr.OPE(I.PUSH(fsize), [SP,fsize], [], []));
 				

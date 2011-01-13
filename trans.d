@@ -17,7 +17,6 @@ static this()
 {
 	outermost_tenv = new TypEnv();
 	outermost = newLevel(null, newLabel("__toplevel"));
-	outermost.frame.procEntry();
 }
 
 
@@ -29,6 +28,7 @@ class Level
 private:
 	Level		parent;
 	Frame		frame;
+		// Future: 仮引数用frameと、bodyのローカル変数用frameを分ける？
 	Access[]	acclist;
 
 	this(Level p, Frame f)
@@ -55,18 +55,16 @@ public:
 	 */
 	Access allocLocal(Ty ty, bool escape)
 	{
-		auto acc = new Access(this, frame.allocLocal(ty, escape));
+		auto acc = new Access(this, frame.allocLocal(escape));
 		acclist ~= acc;
 		return acc;
 	}
 }
 
 /// 
-Level newLevel(Level parent, Label name/*, bool[] formals*/)
+Level newLevel(Level parent, Label name)
 {
-	auto frame = newFrame(name/*, true ~ formals*/);
-	frame.allocLocal(outermost_tenv.Int, true);		// static link用のSlotを追加
-	frame.allocLocal(outermost_tenv.Int, true);		// frame  size用のSlotを追加
+	auto frame = newFrame(name, [true]);	// static link用のSlotを追加
 	return new Level(parent, frame);
 }
 
@@ -84,11 +82,21 @@ private:
 		level = lv;
 		slot  = sl;
 	}
+
+public:
+	void setSize(Ty ty)
+	{
+		slot.setSize(getTypeSize(ty));
+	}
 }
 
-void procEntry(Level level)
+static size_t getTypeSize(Ty ty)
 {
-	level.frame.procEntry();
+	assert(ty.isInferred);
+	if (ty.isFunction)
+		return 2;
+	else
+		return 1;
 }
 
 /**
@@ -96,6 +104,8 @@ void procEntry(Level level)
  */
 void procEntryExit(Level level, Ex bodyexp)
 {
+	level.frame.formals[0].setSize(1);	// set size of slink
+	
 	auto ex = level.frame.procEntryExit1(unNx(bodyexp));
 	
 	auto lx = linearize(ex);
@@ -183,7 +193,7 @@ Ex getVar(Level level, Access access)
 //	debugout("* %s", slink);
 	while (level !is access.level)
 	{
-		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
+		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
 		level = level.parent;
 //		debugout("* %s", slink);
 	}
@@ -199,7 +209,7 @@ Ex getFun(Level level, Level bodylevel, Label label)
 	auto slink = T.TEMP(FP);
 	while (level !is funlevel)
 	{
-		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
+		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
 		level = level.parent;
 	}
 	return new Ex(T.VFUN(slink, label));
@@ -294,7 +304,7 @@ Ex assign(Level level, Access access, Ex value)
 	auto slink = T.TEMP(FP);
 	while (level !is access.level)
 	{
-		slink = level.frame.exp(slink, level.frame.formals[frame.static_link_index]);	//静的リンクを取り出す
+		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
 		level = level.parent;
 	}
 	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slot)));

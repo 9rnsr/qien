@@ -3,7 +3,8 @@
 import parse, typ;
 import trans;
 import debugs;
-import typecons.match, std.typecons;
+import typecons.match;
+import std.typecons;
 
 debug = semant;
 
@@ -13,12 +14,13 @@ Ty transProg(AstNode n)
 	auto tenv = trans.outermost_tenv;
 	auto venv = new VarEnv();
 	
-	findEscape(venv, n);
+	findEscape(n);
 
 	Ty ty;
 	Ex ex;
 	tie[ty, ex] <<= transExp(trans.outermost, tenv, venv, n);
 	
+	venv.mappingAccessType();
 	trans.procEntryExit(trans.outermost, ex);
 	
 	debug(semant)
@@ -51,16 +53,16 @@ void error(ref FilePos pos, string msg)
 	throw new SemantException(pos, msg);
 }
 
-VarEnv[AstNode] venvof;
+Tuple!(uint, "depth", bool, "escape")[Symbol] mapVarEsc;
 
 /// 
 class VarEnv
 {
 	struct Entry
 	{
-		uint	depth;
-		bool	escape;
-		
+//		uint	depth;
+//		bool	escape;
+//		
 		Ty		ty;
 		Access	access;
 	}
@@ -79,30 +81,13 @@ class VarEnv
 		parent = p;
 	}
 	
-	bool add(Symbol s, uint dep, bool esc)
+	bool add(Symbol s, Access acc, Ty t)
 	{
 		if (s in tbl)
 			return false;
 		
-		tbl[s] = Entry(dep, esc, null, null);
+		tbl[s] = Entry(t, acc);
 		return true;
-	}
-	bool add(Symbol s, Access acc, Ty t)
-	{
-	//	if (s in tbl)
-	//		return false;
-	//	
-	//	tbl[s] = Entry(t, acc);
-		
-		auto entry = s in tbl;
-		if (entry && !entry.access && !entry.ty)
-		{
-			entry.access = acc;
-			entry.ty = t;
-			return true;
-		}
-		else
-			return false;
 	}
 	Entry* opIn_r(Symbol s)
 	{
@@ -110,6 +95,17 @@ class VarEnv
 			return pentry;
 		else
 			return parent ? (s in parent) : null;
+	}
+
+	// 関数の各ローカル変数のAccessに型を与える
+	void mappingAccessType()
+	{
+		foreach (entry; tbl)
+		{
+			debugout("mappingAccessType : %s", entry.ty);
+			entry.access.setSize(entry.ty);
+		}
+		debugout("----");
 	}
 
 	string toString()
@@ -226,7 +222,7 @@ out(r){ assert(r.field[1] !is null); }body
 			Ex xf, xr;  Ex[] xa;
 			
 			tie[tf, xf] <<= trexp(n.lhs);
-			foreach (arg ; each(n.rhs))
+			foreach (arg ; n.rhs[])
 			{
 				ta.length += 1;
 				xa.length += 1;
@@ -248,16 +244,16 @@ out(r){ assert(r.field[1] !is null); }body
 			{
 				auto fn = n.rhs;
 				auto fn_tenv = new TypEnv(tenv);
-				auto fn_venv = venvof[n];	//new VarEnv(venv);
+				auto fn_venv = new VarEnv(venv);
 				
 				auto fn_label = newLabel();
-				auto fn_level = trans.newLevel(level, fn_label/*, []*/);
+				auto fn_level = trans.newLevel(level, fn_label);
 				
 				Ty[] tp;
-				foreach (prm; each(fn.prm))
+				foreach (prm; fn.prm[])
 				{
 					auto prm_typ = fn_tenv.Meta(fn_tenv.newmetavar());
-					auto prm_esc = (prm.sym in fn_venv).escape;
+					auto prm_esc = mapVarEsc[prm.sym].escape;
 					auto prm_acc = fn_level.allocLocal(prm_typ, true/*prm_esc*/);	// 仮引数は常にFrameに割り当て
 					
 					tp ~= prm_typ;
@@ -268,8 +264,6 @@ out(r){ assert(r.field[1] !is null); }body
 				tr = fn_tenv.Meta(fn_tenv.newmetavar());
 				tf = fn_tenv.Arrow(tp, tr);
 				
-				trans.procEntry(fn_level);
-				
 				Ty tb;
 				Ex xb;
 				tie[tb, xb] <<= transExp(fn_level, fn_tenv, fn_venv, fn.blk);
@@ -277,8 +271,9 @@ out(r){ assert(r.field[1] !is null); }body
 					error(n.pos, "return type mismatch in def-fun");
 				
 				auto tf2 = fn_tenv.generalize(tf);
+				// 現状、多相型は実体化できない。多相の場合はassertする
 				
-				auto esc = (id.sym in venv).escape;
+				auto esc = mapVarEsc[id.sym].escape;
 				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
@@ -289,6 +284,7 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("    tf2 = %s", tf2);
 //				debug(semant) debugout("    venv = %s", venv);
 				
+				fn_venv.mappingAccessType();
 				trans.procEntryExit(fn_level, xb);
 				
 				if (esc)
@@ -312,7 +308,7 @@ out(r){ assert(r.field[1] !is null); }body
 				if (ty is tenv.Nil)
 					error(n.pos, "infer error...");
 				
-				auto esc = (id.sym in venv).escape;
+				auto esc = mapVarEsc[id.sym].escape;
 				auto acc = level.allocLocal(ty, esc);
 				
 				//if (used(id) ){//todo
@@ -364,9 +360,9 @@ out(r){ assert(r.field[1] !is null); }body
 }
 
 
-void findEscape(VarEnv outermost_venv, AstNode n)
+void findEscape(AstNode n)
 {
-	void traverse(VarEnv venv, uint depth, AstNode n)
+	void traverse(uint depth, AstNode n)
 	{
 		final switch (n.tag)
 		{
@@ -379,7 +375,7 @@ void findEscape(VarEnv outermost_venv, AstNode n)
 			break;
 		
 		case AstTag.IDENT:
-			if (auto entry = n.sym in venv)
+			if (auto entry = n.sym in mapVarEsc)
 			{
 				if (entry.depth < depth)
 				{
@@ -388,7 +384,7 @@ void findEscape(VarEnv outermost_venv, AstNode n)
 				}
 			}
 			else
-				error(n.pos, n.sym.name ~ " undefined");
+				error(n.pos, "undefined identifier " ~ n.sym.name);
 			break;
 		
 		case AstTag.FUN:
@@ -398,14 +394,14 @@ void findEscape(VarEnv outermost_venv, AstNode n)
 		case AstTag.SUB:
 		case AstTag.MUL:
 		case AstTag.DIV:
-			traverse(venv, depth, n.lhs);
-			traverse(venv, depth, n.rhs);
+			traverse(depth, n.lhs);
+			traverse(depth, n.rhs);
 			break;
 		
 		case AstTag.CALL:
-			traverse(venv, depth, n.lhs);
-			foreach (arg ; each(n.rhs))
-				traverse(venv, depth, arg);
+			traverse(depth, n.lhs);
+			foreach (arg ; n.rhs[])
+				traverse(depth, arg);
 			break;
 		
 		case AstTag.ASSIGN:
@@ -416,23 +412,22 @@ void findEscape(VarEnv outermost_venv, AstNode n)
 			if (n.rhs.tag == AstTag.FUN)
 			{
 				auto fn = n.rhs;
-				auto fn_venv = venvof[n] = new VarEnv(venv);
 				
-				venv.add(id.sym, depth, false);
-				foreach (prm; each(fn.prm))
-					fn_venv.add(prm.sym, depth+1, false);
-				traverse(fn_venv, depth+1, fn.blk);
+				mapVarEsc[id.sym] = tuple(depth, false);
+				foreach (prm; fn.prm[])
+					mapVarEsc[prm.sym] = tuple(depth+1, false);
+				traverse(depth+1, fn.blk);
 			}
 			else
-				venv.add(id.sym, depth, false);
+				mapVarEsc[id.sym] = tuple(depth, false);
 			break;
 		}
 		
 		if (n.next)
-			traverse(venv, depth, n.next);
+			traverse(depth, n.next);
 	}
 
-	traverse(outermost_venv, 0, n);
+	traverse(0, n);
 }
 
 

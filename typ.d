@@ -107,7 +107,9 @@ class Ty
 	
 	@property bool isFunction() const
 	{
-		return (tag == TyTag.APP && tycon == TyconTag.ARROW);
+		return 
+			(tag == TyTag.APP && tycon == TyconTag.ARROW) ||
+			(tag == TyTag.POLY && tvars.length == 0 && polty.isFunction);
 	}
 	
 	string toString()
@@ -423,6 +425,7 @@ public:
 				}
 				else
 				{
+					assert(0);	// 現状、多相型は実体化できない
 					auto v = newtyvar();
 					tyvars ~= v;
 					auto ty = Var(v);

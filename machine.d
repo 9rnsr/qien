@@ -156,13 +156,20 @@ class Machine
 private:
 	const(uint)[]	code;
 	long[]			stack;
-	long[3+256]		regs;	// todo 3 == FP+RV+NIL
-	size_t			sp() @property { return stack.length; };
+	long[256]		regs;	// todo
 	size_t			pc;
+	ref ulong		cp() @property { return *cast(ulong*)&regs[CP.num]; };
 	ref ulong		ep() @property { return *cast(ulong*)&regs[FP.num]; }	// one of the normal registers
+	ref ulong		sp() @property { return *cast(ulong*)&regs[SP.num]; };
+	
+	ref ulong		cp(ulong n) @property { return cp() = n, cp(); };
 	ref ulong		ep(ulong n) @property { return ep() = n, ep(); }
-	size_t			cp;
+	ref ulong		sp(ulong n) @property { return stack.length = cast(size_t)n, sp() = n, sp(); }
 	Heap			heap;
+	
+	size_t cp_t()	{ return cast(size_t)cp; }
+	size_t ep_t()	{ return cast(size_t)ep; }
+	size_t sp_t()	{ return cast(size_t)sp; }
 	
 	size_t[uint]	label_to_pc;
 	
@@ -208,18 +215,18 @@ public:
 		
 		heap = new Heap();
 		
-		stack.length = 4;
+		pc = 0;
+		cp = 0;
+		ep = 2;
+		sp = 4;
 		stack[0] = code.length;	// outermost old_pc
 		stack[1] = 0;			// outermost old_ep
 		stack[2] = 0;			// outermost env->up  ( = void)
-		stack[3] = 0xFFFF;		// outermost env->size(placholder)
-		
-		pc = 0;
-		ep = 2;
-		cp = 0;
+		stack[3] = 0xBEEF;		// outermost env->size(placholder)
 		
 		//debug(machine) debugout("code = %(%08X %)", code);
 		
+		printRegs();
 		printStack();
 		
 		while (pc < code.length)
@@ -264,8 +271,8 @@ public:
 				debug(machine) debugout("%08x : LDB R%s:%s <- [ep:%s %s %s]:%s",
 						save_pc,
 						i.l.dst, regs[i.l.dst], 
-						ep, i.l.disp<0?"":"+", i.l.disp, stack[cast(size_t)ep + i.l.disp]);
-				regs[i.l.dst] = stack[cast(size_t)ep + i.l.disp];
+						ep, i.l.disp<0?"":"+", i.l.disp, stack[ep_t + i.l.disp]);
+				regs[i.l.dst] = stack[ep_t + i.l.disp];
 				break;
 			case LDI:
 				auto imm = getImm();
@@ -294,7 +301,7 @@ public:
 						save_pc,
 						i.s.src, regs[i.s.src],
 						ep, i.s.disp<0?"":"+", i.s.disp);
-				stack[cast(size_t)ep + i.s.disp] = regs[i.s.src];
+				stack[ep_t + i.s.disp] = regs[i.s.src];
 				
 				printStack();
 				break;
@@ -313,7 +320,10 @@ public:
 						save_pc,
 						i.a.src, regs[i.a.src],
 						i.a.dst, regs[i.a.dst]);
-				regs[i.a.dst] = regs[i.a.src];
+				if (i.a.dst == SP.num)
+					sp = regs[i.a.src], printStack();	// change stack size
+				else
+					regs[i.a.dst] = regs[i.a.src];
 				break;
 			case ADD:
 				debug(machine) debugout("%08x : ADD R%s:%s + R%s:%s-> R%s:%s",
@@ -355,9 +365,8 @@ public:
 						i.a.src, regs[i.a.src],
 						label_to_pc[cast(size_t)regs[i.a.src]]);
 				
-				stack[cp] = cast(Word)pc;	// fill ret_pc
+				stack[cp_t] = cast(Word)pc;	// fill ret_pc
 				ep = cp + ContSize;
-				//pc = cast(size_t)regs[i.a.src];	//cast(size_t)adr;
 				pc = label_to_pc[cast(size_t)regs[i.a.src]];
 				
 				printStack();
@@ -367,14 +376,14 @@ public:
 				printRegs();
 				debug(machine) debugout("%08X : RET (ret_pc=%08X, ret_ep=%08X)",
 						save_pc,
-						stack[cp+0],
-						stack[cp+1]);
+						stack[cp_t+0],
+						stack[cp_t+1]);
 				
-				ep = stack[cp+1];
-				pc = cast(size_t)stack[cp+0];
-				stack.length = cp;
+				ep = stack[cp_t+1];
+				pc = cast(size_t)stack[cp_t+0];
+				sp = cp;
 				if (ep != 0)	//todo
-					cp = cp - cast(size_t)(memory(ep)[1] + ContSize);
+					cp = cp - (memory(ep)[1] + ContSize);
 				
 				printStack();
 				break;
@@ -383,7 +392,7 @@ public:
 						save_pc);
 				
 				cp = sp;
-				stack ~= 0xDDDD;	// ret_pc(filled by CALL)
+				stack ~= 0xBEEF;	// ret_pc(filled by CALL)
 				stack ~= ep;		// ret_ep
 				
 				printStack();
@@ -423,7 +432,7 @@ public:
 			}
 		}
 		
-		debug(machine) debugout("RV[R%s] = %s", 1, regs[1]);	// debug, print RV
+		debug(machine) debugout("RV[R%s] = %s", RV.num, regs[RV.num]);	// debug, print RV
 	}
 
 private:

@@ -1,6 +1,7 @@
 ﻿module parse;
 
 public import lex, sym;
+import std.range;
 import debugs;
 
 //debug = parse;
@@ -140,20 +141,19 @@ class AstNode
 	}
 /+	string toString() const{
 	}+/
-}
-
-
-/// AstNode#nextを辿って列挙する
-int delegate(scope int delegate(ref AstNode)) each(AstNode n)
-{
-	return (scope int delegate(ref AstNode) dg){
-		while( n ){
-			if( n.tag == AstTag.NOP ) break;
-			if( auto result = dg(n) ) return result;
-			n = n.next;
+	
+	/// AstNode#nextを辿って列挙する
+	AstNode[] opSlice()
+	{
+		static struct NodeList
+		{
+			AstNode node;
+			@property AstNode front()	{ return node; }
+			@property bool empty() const{ return !node || node.tag == AstTag.NOP; }
+			void popFront()				{ node = node.next; }
 		}
-		return 0;
-	};
+		return array(NodeList(this));
+	}
 }
 
 
