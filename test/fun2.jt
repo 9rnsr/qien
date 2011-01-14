@@ -1,0 +1,9 @@
+var a = 10
+fun f = (x){
+	x + a
+}
+var b = 20
+fun g = (){
+	b
+}
+f(a)

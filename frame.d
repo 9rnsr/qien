@@ -93,24 +93,30 @@ public:
 	}
 	Instr[] procEntryExit3(Instr[] instr)
 	{
+		T.Stm[] prologue;
+		
 		size_t frameSize = 0;
 		foreach (slot; slotlist)
+		{
+			prologue ~= T.MOVE(T.VINT(frameSize), T.TEMP(slot.disp));
 			frameSize += slot.len;
+		}
 		
 		scope m = new Munch();
-		return	m.munch([
-					// FP + frameSize -> SP
-					T.MOVE(
-						T.BIN(T.BinOp.ADD, T.VINT(frameSize), T.TEMP(FP)),
-						T.TEMP(SP)),
-					// frameSize -> [FP + 1]
-					T.MOVE(
-						T.VINT(frameSize),
-						T.MEM(
-							T.BIN(
-								T.BinOp.ADD,
-								T.TEMP(FP),
-								T.VINT(1))))])
+		return	m.munch(
+					prologue ~
+						// FP + frameSize -> SP
+					[	T.MOVE(
+							T.BIN(T.BinOp.ADD, T.VINT(frameSize), T.TEMP(FP)),
+							T.TEMP(SP)),
+						// frameSize -> [FP + 1]
+						T.MOVE(
+							T.VINT(frameSize),
+							T.MEM(
+								T.BIN(
+									T.BinOp.ADD,
+									T.TEMP(FP),
+									T.VINT(1))))])
 				~ instr
 				~ Instr.OPE(I.RET(), [], [CP, FP, SP], [ReturnLabel]);
 	}
@@ -132,7 +138,7 @@ public:
 					T.BIN(
 						T.BinOp.ADD,
 						slink,
-						T.VINT(disp)));
+						T.TEMP(slot.disp)));
 		}
 		else
 		{
@@ -160,6 +166,7 @@ private:
 		size_t index;			// IN_FRAME: Slotリスト先頭からのindex
 		Temp temp;				// IN_REG: 
 	}
+	Temp disp;	// slotのEP基準でのoffsetを格納、procEntryExit3で値が確定
 	size_t len;
 
 	this(Frame fr, bool esc)
@@ -174,6 +181,7 @@ private:
 			tag = IN_REG;
 			temp = newTemp();
 		}
+		disp = newTemp();
 	}
 
 public:

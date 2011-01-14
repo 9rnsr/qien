@@ -63,7 +63,7 @@ private:
 	{
 		Temp	t;
 		Label	l;
-		T.Exp	e, e1, e2;
+		T.Exp	e, e1, e2, disp;
 		T.Exp[]	el;
 		long	n;
 		T.BinOp	binop;
@@ -79,9 +79,10 @@ private:
 				debug(munch) debugout("munchExp : TEMP[&t]");
 				return t;
 			},
-			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), T.VINT[&n]]],{
-				debug(munch) debugout("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), VINT[&n]]]");
-				return result((Temp r){ emit(Instr.OPE(I.LDB(cast(int)n, r), [FP], [r], [])); });
+			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]],{
+				debug(munch) debugout("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
+				auto d = munchExp(disp);
+				return result((Temp r){ emit(Instr.OPE(I.LDB(FP, d, r), [FP,d], [r], [])); });
 			},
 			T.MEM[&e],{
 				debug(munch) debugout("munchExp : MEM[&e]");
@@ -102,14 +103,17 @@ private:
 				}
 			},
 
-			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), T.VINT[&n]]], &el],{
+			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]], &el],{
 				debug(munch) debugout("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
 				
 				emit(Instr.OPE(I.PUSH_CONT(), [], [CP,SP], []));
 				
-				auto label = result((Temp r){ emit(Instr.OPE(I.LDB(cast(int)n+0, r), [FP], [r], [])); });
-				auto slink = result((Temp r){ emit(Instr.OPE(I.LDB(cast(int)n+1, r), [FP], [r], [])); });
-				auto fsize = result((Temp r){ emit(Instr.OPE(I.LDI(0xBEEF,       r), [],   [r], [])); });
+				auto d0 = munchExp(disp);
+				auto d1 = munchExp(T.BIN(T.BinOp.ADD, T.TEMP(d0), T.VINT(1)));
+				
+				auto label = result((Temp r){ emit(Instr.OPE(I.LDB(FP, d0, r), [FP], [r], [])); });
+				auto slink = result((Temp r){ emit(Instr.OPE(I.LDB(FP, d1, r), [FP], [r], [])); });
+				auto fsize = result((Temp r){ emit(Instr.OPE(I.LDI(0xBEEF, r), [],   [r], [])); });
 				emit(Instr.OPE(I.PUSH(slink), [SP,slink], [], []));
 				emit(Instr.OPE(I.PUSH(fsize), [SP,fsize], [], []));
 				
@@ -142,7 +146,7 @@ private:
 		//		return result((Temp r){ emit(Instr.OPE(I.LDI(n, r), [], [], [])); });
 		//	},
 			_,{
-				//writef("munchExp : _ = "), debugout(exp);
+				writef("munchExp : _ = "), debugout(exp);
 				assert(0);
 				return Temp.init;
 			}
@@ -151,21 +155,22 @@ private:
 
 	void munchStm(T.Stm stm)
 	{
-		long	n, disp;
+		long	n;
 		Temp	t;
-		T.Exp	e, e1 ,e2;
+		T.Exp	e, e1 ,e2, disp;
 		Label	l;
 		
 		debug(munch) debugout("* munchStm : stm = ");
 		debug(munch) debugout(stm);
 		match(stm,
-			T.MOVE[&e, T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), T.VINT[&disp]]]],{
+			T.MOVE[&e, T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]]],{
 				if (T.VINT[&n] <<= e)
 				{
-					debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&disp]]]]");
+					debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[BIN[BinOp.ADD, T.TEMP(FP), &disp]]]");
 					
+					auto d = munchExp(disp);
 					auto r = result((Temp r){ emit(Instr.OPE(I.LDI(n, r), [], [r], [])); });
-					emit(Instr.OPE(I.STB(r, cast(int)disp), [FP,r], [], []));
+					emit(Instr.OPE(I.STB(r, FP, d), [r,FP,d], [], []));
 				}
 				else if (T.VFUN[T.TEMP(FP), &l] <<= e)
 				{
@@ -173,10 +178,22 @@ private:
 					// fp+nはn=0でも加算のIRが作られる(Frame.exp()参照)
 					debug(munch) debugout("munchStm : MOVE[VFUN[T.TEMP(FP), &l], MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&disp]]]]");
 					
+					auto d0 = munchExp(disp);
+					auto d1 = munchExp(T.BIN(T.BinOp.ADD, T.TEMP(d0), T.VINT(1)));
+					
 					auto ta = result((Temp r){ emit(Instr.OPE(I.LDI(l.num, r), [], [r], [])); });
-					emit(Instr.OPE(I.STB(ta, cast(int)disp + 0), [FP,ta], [], []));
-					emit(Instr.OPE(I.STB(FP, cast(int)disp + 1), [FP],    [], []));
+					emit(Instr.OPE(I.STB(ta, FP, d0), [ta,FP,d0], [], []));
+					emit(Instr.OPE(I.STB(FP, FP, d1),    [FP,d1], [], []));
 				}
+				else
+				{
+					assert(0);
+				}
+			},
+			T.MOVE[T.VINT[&n], T.TEMP[&t]],{
+				debug(munch) debugout("munchStm : MOVE[VINT[&n], TEMP[&t]]");
+				
+				emit(Instr.OPE(I.LDI(n, t), [], [t], []));
 			},
 			T.MOVE[&e1, &e2],{
 				debug(munch) debugout("munchStm : MOVE[&e1, &e2]");

@@ -13,15 +13,15 @@ alias long Word;
 alias ulong Ptr;
 
 /**
-*	LDA		[@src]		-> $dst		[op:8][dst:8][---:8][src:8]
-	LDB		[ep+n]		-> $dst		[op:8][dst:8][     disp:16]
-	LDI		#imm		-> $dst		[op:8][dst:8][---------:16] [imm :64]
+*	LDA		[@src]		-> $dst		[op:8][dest:8][----:8][src :8]
+	LDB		[ep+n]		-> $dst		[op:8][dest:8][disp:8][base:8]
+	LDI		#imm		-> $dst		[op:8][dest:8][-----------:16] [imm :64]
 	
-	STA		$src		-> @addr	[op:8][src:8][---------:16] [addr:64]
-	STB		$src		-> [ep+n]	[op:8][src:8][     disp:16]
+	STA		$src		-> @addr	[op:8][src :8][-----------:16] [addr:64]
+	STB		$src		-> [ep+n]	[op:8][base:8][disp:8][src :8]
 	
-	MOV		$src		-> $dst		[op:8][dst:8][---:8][src:8]
-	ADD		$src ? $acc	-> $dst		[op:8][dst:8][acc:8][src:8]
+	MOV		$src		-> $dst		[op:8][dest:8][----:8][src :8]
+	ADD		$src ? $acc	-> $dst		[op:8][dest:8][acc :8][src :8]
 	SUB		<<same>>
 	MUL		<<same>>
 	DIV		<<same>>
@@ -65,14 +65,15 @@ class Instruction
 	this(Fmt.A ac)				{ i.a = ac; }
 	
 	static LDA(Temp adr, Temp dst) { return new Instruction(Fmt.A(Op.LDA, R(dst), 0, R(adr))); }
-	static LDB(int disp, Temp dst) { return new Instruction(Fmt.L(Op.LDB, R(dst), cast(short)disp)     ); }
 	static LDI(long imm, Temp dst) { return new Instruction(Fmt.L(Op.LDI, R(dst), 0              ), imm); }
 	static POP(Temp dst)           { return new Instruction(Fmt.L(Op.POP, R(dst), 0)); }
 	
 	static STA(Temp src, uint adr) { return new Instruction(Fmt.S(Op.STA,  R(src), 0), adr); }
-	static STB(Temp src, int disp) { return new Instruction(Fmt.S(Op.STB,  R(src), cast(short)disp)); }
 	static PUSH(Temp src)          { return new Instruction(Fmt.S(Op.PUSH, R(src), 0)); }
 	
+	static LDB(Temp bas, Temp dsp, Temp dst) { return new Instruction(Fmt.A(Op.LDB, R(dst), R(dsp), R(bas))); }
+	static STB(Temp src, Temp bas, Temp dsp) { return new Instruction(Fmt.A(Op.STB, R(bas), R(dsp), R(src))); }
+
 	static MOV(Temp src,           Temp dst) { return new Instruction(Fmt.A(Op.MOV, R(dst), 0,      R(src))); }
 	static ADD(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.ADD, R(dst), R(acc), R(src))); }
 	static SUB(Temp src, Temp acc, Temp dst) { return new Instruction(Fmt.A(Op.SUB, R(dst), R(acc), R(src))); }
@@ -97,16 +98,16 @@ class Instruction
 		case NOP:	return "NOP";
 		case HLT:	return "HLT";
 		
-		case LDA:	return format("LDA R%s <- [@%X]",    i.a.dst, i.a.src);
-		case LDB:	return format("LDB R%s <- [ep%s%s]", i.l.dst, i.l.disp<0?"":"+", i.l.disp);
-		case LDI:	return format("LDI R%s <- #%s",      i.l.dst, imm);
-		case POP:	return format("POP R%s <- [--sp]",   i.l.dst);
+		case LDA:	return format("LDA [@%X] -> R%s"	, i.a.src, i.a.dst);
+		case LDB:	return format("LDB [R%s+R%s] -> R%s", i.a.src, i.a.acc, i.a.dst);
+		case LDI:	return format("LDI #%s -> R%s", imm	, i.l.dst);
+		case POP:	return format("POP [--sp] -> R%s"	, i.l.dst);
 		
-		case STA:	return format("STA R%s -> @%X",      i.s.src, adr);
-		case STB:	return format("STB R%s -> [ep%s%s]", i.s.src, i.s.disp<0?"":"+", i.s.disp);
-		case PUSH:	return format("PUSH R%s -> [sp++]",  i.s.src);
+		case STA:	return format("STA R%s -> @%X"		, i.s.src, adr);
+		case STB:	return format("STB R%s -> [R%s+R%s]", i.a.src, i.a.dst, i.a.acc);
+		case PUSH:	return format("PUSH R%s -> [sp++]"	, i.s.src);
 		
-		case MOV:	return format("MOV R%s -> R%s",       i.a.src,          i.a.dst);
+		case MOV:	return format("MOV R%s -> R%s"		, i.a.src,          i.a.dst);
 		case ADD:	return format("ADD R%s + R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
 		case SUB:	return format("SUB R%s - R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
 		case MUL:	return format("MUL R%s * R%s -> R%s", i.a.src, i.a.acc, i.a.dst);
@@ -260,26 +261,29 @@ public:
 			
 			case LDA:
 				//auto adr = getAddr();
-				debug(machine) debugout("%08x : LDA R%s:%s <- [@ R%s:%s]:%s",
-						save_pc,
-						i.a.dst, regs[i.a.dst], 
-						i.a.src, regs[i.a.src], memory(regs[i.a.src])[0]);
+				debug(machine) debugout("%08x : LDA [@ R%s:%s]:%s -> R%s:%s",
+						save_pc, 
+						i.a.src, regs[i.a.src],
+						memory(regs[i.a.src])[0],
+						i.a.dst, regs[i.a.dst]);
 				
 				regs[i.a.dst] = memory(regs[i.a.src])[0];
 				break;
 			case LDB:
-				debug(machine) debugout("%08x : LDB R%s:%s <- [ep:%s %s %s]:%s",
-						save_pc,
-						i.l.dst, regs[i.l.dst], 
-						ep, i.l.disp<0?"":"+", i.l.disp, stack[ep_t + i.l.disp]);
-				regs[i.l.dst] = stack[ep_t + i.l.disp];
+				debug(machine) debugout("%08x : LDB [R%s:%s + R%s:%s]:%s -> R%s:%s",
+						save_pc, 
+						i.a.src, regs[i.a.src],
+						i.a.acc, regs[i.a.acc],
+						stack[cast(size_t)(regs[i.a.src] + regs[i.a.acc])],
+						i.a.dst, regs[i.a.dst]);
+				regs[i.a.dst] = stack[cast(size_t)(regs[i.a.src] + regs[i.a.acc])];
 				break;
 			case LDI:
 				auto imm = getImm();
-				debug(machine) debugout("%08x : LDI R%s:%s <- imm:%s",
+				debug(machine) debugout("%08x : LDI #%s -> R%s:%s",
 						save_pc,
-						i.l.dst, regs[i.l.dst],
-						imm);
+						imm,
+						i.l.dst, regs[i.l.dst]);
 				regs[i.l.dst] = imm;
 				break;
 			case POP:
@@ -297,11 +301,12 @@ public:
 				assert(0);
 				break;
 			case STB:
-				debug(machine) debugout("%08x : STB R%s:%s -> [ep:%s %s %s]",
+				debug(machine) debugout("%08x : STB R%s:%s -> [R%s:%s + R%s:%s]",
 						save_pc,
-						i.s.src, regs[i.s.src],
-						ep, i.s.disp<0?"":"+", i.s.disp);
-				stack[ep_t + i.s.disp] = regs[i.s.src];
+						i.a.src, regs[i.a.src],
+						i.a.dst, regs[i.a.dst],
+						i.a.acc, regs[i.a.acc]);
+				stack[cast(size_t)(regs[i.a.dst] + regs[i.a.acc])] = regs[i.a.src];
 				
 				printStack();
 				break;
@@ -444,14 +449,14 @@ private:
 		
 		foreach (i; frame.procEntryExit3(instr))
 		{
-			debug(machine) debugout("addInstruction %08X : %s", code.length, i);
 			Instruction mi;
-			code ~= 
-				match(i,
-					Instr.OPE[&mi, $],{ return mi.assemble(); },
-					Instr.LBL[&mi, $],{ return mi.assemble(); },
-					Instr.MOV[&mi, $],{ return mi.assemble(); }
-				);
+			if ((Instr.OPE[&mi, $] <<= i) ||
+				(Instr.LBL[&mi, $] <<= i) ||
+				(Instr.MOV[&mi, $] <<= i) )
+			{
+				debug(machine) debugout("addInstruction %08X : %s", code.length, mi);
+				code ~= mi.assemble();
+			}
 		}
 	}
 
