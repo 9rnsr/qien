@@ -11,17 +11,22 @@ debug = semant;
 /// 
 Ty transProg(AstNode n)
 {
-	auto tenv = trans.outermost_tenv;
+	trans.initialize();
+	
+	auto tenv = new TypEnv();
 	auto venv = new VarEnv();
 	
+	// 最上位のLevelを表す定義済みオブジェクト
+	auto outermost = newLevel(null, newLabel("__toplevel"));
+
 	findEscape(n);
 
 	Ty ty;
 	Ex ex;
-	tie[ty, ex] <<= transExp(trans.outermost, tenv, venv, n);
+	tie[ty, ex] <<= transExp(outermost, tenv, venv, n);
 	
 	venv.mappingAccessType();
-	trans.procEntryExit(trans.outermost, ex);
+	trans.procEntryExit(outermost, ex);
 	
 	debug(semant)
 	{

@@ -4,6 +4,18 @@ public import lex;
 import std.conv, std.string;
 
 
+void initialize()
+{
+	Symbol.uniq_symbol_count = 0;
+	Symbol.internTbl = null;
+
+	Constant!long  .pool = null;
+	Constant!double.pool = null;
+	Constant!string.pool = null;
+
+	Temp.uniq_temp_count = 0;
+}
+
 /**
  * シンボル毎に対応するオブジェクトを生成するクラス、Poolも兼ねる
  */
@@ -61,6 +73,7 @@ Symbol newSymbol(string name=null)
  * リテラル値毎に一意なオブジェクトを生成するクラス、Poolも兼ねる
  */
 class Constant(T)
+	if (is(T==long) || is(T==double) || is(T == string))
 {
 private:
 	static Constant[T] pool;

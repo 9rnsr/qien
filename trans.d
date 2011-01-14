@@ -9,14 +9,23 @@ import debugs;
 
 
 /**
- * 最上位のLevelを表す定義済みオブジェクト
+ * 
  */
-TypEnv outermost_tenv;
-Level  outermost;
-static this()
+Fragment[] frag;
+
+void initialize()
 {
-	outermost_tenv = new TypEnv();
-	outermost = newLevel(null, newLabel("__toplevel"));
+	frame.initialize();
+	
+	frag = [];
+}
+
+/**
+ * 
+ */
+Retro!(Fragment[]) getResult()
+{
+	return retro(frag);
 }
 
 
@@ -90,7 +99,7 @@ public:
 	}
 }
 
-static size_t getTypeSize(Ty ty)
+size_t getTypeSize(Ty ty)
 {
 	assert(ty.isInferred);
 	if (ty.isFunction)
@@ -110,19 +119,6 @@ void procEntryExit(Level level, Ex bodyexp)
 	
 	auto lx = linearize(ex);
 	frag ~= new Fragment(lx, level.frame);
-}
-
-/**
- * 
- */
-static Fragment[] frag;
-
-/**
- * 
- */
-Retro!(Fragment[]) getResult()
-{
-	return retro(frag);
 }
 
 /**

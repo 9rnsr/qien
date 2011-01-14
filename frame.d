@@ -13,8 +13,10 @@ Temp RV;	// Return Value
 Temp SP;	// Stack Pointer
 Temp NIL;	// Nil Temporary (do not have real memory)
 Label ReturnLabel;
-static this()
+void initialize()
 {
+	sym.initialize();
+	
 	CP  = newTemp("CP");
 	FP  = newTemp("FP");
 	SP  = newTemp("SP");

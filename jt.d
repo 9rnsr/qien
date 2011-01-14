@@ -27,6 +27,8 @@ int main(string[] args)
 
 void run_program(string fname)
 {
+	trans.initialize();
+	
 	auto tok = toknize(fname);
 	auto ast = parse(tok);
 	auto typ = transProg(ast);
