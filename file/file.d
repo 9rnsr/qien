@@ -73,7 +73,7 @@ struct FilePos
 		return (cast(const(FilePos))this).toString();
 	}
 	string toString() const{
-		return format("[%s:%s]", line, column);
+		return format("[%s:%s]", line+1, column+1);
 	}
 }
 

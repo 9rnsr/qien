@@ -85,6 +85,11 @@ public:
 	const(T) val;
 	
 	alias val this;
+	
+	string toString()
+	{
+		return format("Constant!%s(%s)", T.stringof, val);
+	}
 }
 
 alias Constant!long		IntT;
