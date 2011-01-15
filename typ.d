@@ -425,7 +425,7 @@ public:
 				}
 				else
 				{
-					assert(0);	// 現状、多相型は実体化できない
+					assert(0, "Cannot instantiate polymorphic functions yet.");
 					auto v = newtyvar();
 					tyvars ~= v;
 					auto ty = Var(v);

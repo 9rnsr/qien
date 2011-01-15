@@ -3,3 +3,4 @@
 *.jt
 *.txt
 !test/*.jt
+!test/fails/*
