@@ -32,8 +32,6 @@ Ty transProg(AstNode n)
 	{
 		debugout("========");
 		debugout("transProg = %s", ty);
-		
-		debugout("transProg.frag[] = ");
 		foreach (f; trans.getResult()){
 			debugout("----");
 			debugout("%s : ", f.p[1].name);
@@ -106,10 +104,7 @@ class VarEnv
 	void mappingAccessType()
 	{
 		foreach (entry; tbl)
-		{
-			debugout("mappingAccessType : %s", entry.ty);
 			entry.access.setSize(entry.ty);
-		}
 		debugout("----");
 	}
 

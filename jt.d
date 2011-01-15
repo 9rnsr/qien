@@ -4,17 +4,25 @@ import lex;
 import parse : parse;
 import semant, trans;
 import assem, frame, machine;
-import std.stdio;
+import std.stdio, std.getopt, std.file, std.path;
 import debugs;
 
 
 int main(string[] args)
 {
-	if (args.length == 1)
-	{
-		usage();
-		return 0;
-	}
+	bool doTestSuite = false;
+	bool printHelp = false;
+	
+	getopt(args,
+		config.caseSensitive,
+		"testsuite|t", &doTestSuite,
+		"help|?", &printHelp);
+	
+	if (printHelp)
+		return usage();
+	
+	if (doTestSuite)
+		return run_test();
 	
 	if (args.length == 2)
 	{
@@ -51,21 +59,23 @@ void run_program(string fname)
 	m.run();
 }
 
-
-void usage()
+int usage()
 {
-	writefln("Usage:");
-	writefln("  jt { options } [source_filename]");
-	writefln("");
-//	writefln("  -u,-unittest\trun unittests");
+	enum helpmsg = q"EOS
+Usage:
+  jt { options } [source_filename]
 
-	run_test();
+Options:
+  --testsuite,-t    run test suite
+  --help,-?         print help
+EOS";
+
+	write(helpmsg);
+
+	return 0;
 }
 
-
-import std.file, std.path, std.stdio;
-
-void run_test()
+int run_test()
 {
 	foreach (fname; listdir("test"))
 	{
@@ -82,4 +92,5 @@ void run_test()
 			run_program(`test\` ~ fname);
 		}
 	}
+	return 0;
 }
