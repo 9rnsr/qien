@@ -1,5 +1,6 @@
 # -clean
+-ofqien
 -odobj
 -Xphobos
 -Xwin32
-jt.d
+main.d

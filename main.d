@@ -1,4 +1,4 @@
-﻿module jt;
+﻿module main;
 
 import lex;
 import parse : parse;
@@ -63,7 +63,7 @@ int usage()
 {
 	enum helpmsg = q"EOS
 Usage:
-  jt { options } [source_filename]
+  qien { options } [source_filename]
 
 Options:
   --testsuite,-t    run test suite
@@ -79,7 +79,7 @@ int run_test()
 {
 	foreach (fname; listdir("test"))
 	{
-		if (fname.getExt == "jt")
+		if (fname.getExt == "qi")
 		{
 			writefln("[] %s", fname);
 			
