@@ -132,7 +132,7 @@ public:
 		
 		if (slot.tag == Slot.IN_FRAME)
 		{
-			auto disp = std.algorithm.indexOf!"a is b"(slotlist, slot);
+			auto disp = std.algorithm.countUntil!"a is b"(slotlist, slot);
 			assert(disp != -1);
 			
 			return

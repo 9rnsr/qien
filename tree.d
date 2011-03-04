@@ -1,7 +1,7 @@
 ﻿module tree;
 
 import sym;
-import typecons.tagunion;
+import xtk.tagunion;
 import std.conv, std.typecons;
 import debugs;
 

@@ -3,7 +3,7 @@
 import sym;
 import frame;
 import T = tree;
-import typecons.tagunion;
+import xtk.tagunion;
 import std.conv, std.string, std.stdio;
 import std.metastrings;
 import debugs;

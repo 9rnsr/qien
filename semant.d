@@ -3,7 +3,7 @@
 import parse, typ;
 import trans;
 import debugs;
-import typecons.match;
+import xtk.match;
 import std.typecons;
 
 debug = semant;

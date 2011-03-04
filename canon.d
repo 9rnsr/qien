@@ -2,7 +2,7 @@
 
 import sym;
 import T = tree;
-import typecons.match;
+import xtk.match;
 import std.typecons, std.typetuple;
 import debugs;
 

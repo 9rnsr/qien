@@ -3,7 +3,7 @@ module machine;
 import sym;
 import frame;
 import assem;
-import typecons.tagunion;
+import xtk.tagunion;
 import std.string;
 import debugs;
 
