@@ -4,6 +4,7 @@ import sym;
 import T = tree;
 import std.algorithm, std.string, std.typecons;
 import debugs;
+private import xtk.workaround : format;
 
 import assem;
 

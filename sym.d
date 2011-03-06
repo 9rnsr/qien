@@ -1,7 +1,8 @@
 ﻿module sym;
 
 public import lex;
-import std.conv, std.string;
+import std.conv;
+import xtk.workaround : format;
 
 
 void initialize()

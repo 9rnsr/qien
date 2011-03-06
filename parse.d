@@ -3,13 +3,14 @@
 public import lex, sym;
 import std.range;
 import debugs;
+private import xtk.workaround : format;
 
 //debug = parse;
 
 /// 
-AstNode parse(Toknizer toknizer)
+AstNode parse(string fname/*Toknizer toknizer*/)
 {
-	scope ctxt = new ParseContext(toknizer);
+	scope ctxt = new ParseContext(fname/*toknizer*/);
 	
 	auto ast = ctxt.parseProg();
 	
@@ -59,17 +60,17 @@ class AstNode
 	
 	static AstNode Int(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.INT);
-		n.i = t.i;
+		n.i = IntT(t.i);
 		return n;
 	}
 	static AstNode Real(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.REAL);
-		n.r = t.r;
+		n.r = RealT(t.r);
 		return n;
 	}
 	static AstNode Str(ref Token t){
 		auto n = new AstNode(t.pos, AstTag.STR);
-		n.s = t.s;
+		n.s = StrT(t.s);
 		return n;
 	}
 	static AstNode Ident(ref Token t){
@@ -85,16 +86,16 @@ class AstNode
 	}
 	
 	static AstNode AddSub(ref Token t, AstNode lhs, AstNode rhs)
-	in{ assert(t == TokTag.ADD || t == TokTag.SUB); }
+	in{ assert(t == Token.ADD || t == Token.SUB); }
 	body{
-		auto n = new AstNode(t.pos, t == TokTag.ADD ? AstTag.ADD : AstTag.SUB);
+		auto n = new AstNode(t.pos, t == Token.ADD ? AstTag.ADD : AstTag.SUB);
 		n.lhs = lhs, n.rhs = rhs;
 		return n;
 	}
 	static AstNode MulDiv(ref Token t, AstNode lhs, AstNode rhs)
-	in{ assert(t == TokTag.MUL || t == TokTag.DIV); }
+	in{ assert(t == Token.MUL || t == Token.DIV); }
 	body{
-		auto n = new AstNode(t.pos, t == TokTag.MUL ? AstTag.MUL : AstTag.DIV);
+		auto n = new AstNode(t.pos, t == Token.MUL ? AstTag.MUL : AstTag.DIV);
 		n.lhs = lhs, n.rhs = rhs;
 		return n;
 	}
@@ -160,8 +161,9 @@ class AstNode
 /// 
 class ParseContext
 {
-	this(Toknizer tok){
-		input = tok;
+	this(string fname/*Toknizer tok*/){
+		//input = tok;
+		input = Toknizer(fname);
 		/*t = */input_next();
 		Trace.context = this;
 	}
@@ -175,7 +177,7 @@ class ParseContext
 			if( !tail.next ) break;
 			tail = (tail.next);
 		}
-		if( t != TokTag.EOF ) error(t.pos, "Program should be terminated by EOF");
+		if( t != Token.EOF ) error(t.pos, "Program should be terminated by EOF");
 		
 		return n;
 	}
@@ -185,26 +187,30 @@ private:
 	Token t;
 	
 	void input_next(){
-		t = input.take();
+		assert(!input.empty);
+		t = input.front;
+		input.popFront();
 	}
 	void input_skip_ws(){
-		while( t == TokTag.NEWLINE ){ /*t = */input_next(); }
+		while( t == Token.NEWLINE ){ /*t = */input_next(); }
 	}
 	void input_next_ws(){
-		//while( (/*t = */input_next()) == TokTag.NEWLINE ){}
-		do{ input_next(); }while( t == TokTag.NEWLINE )
+		//while( (/*t = */input_next()) == Token.NEWLINE ){}
+		do{ input_next(); }while( t == Token.NEWLINE )
 	}
 	void error(ref FilePos pos, string msg){
 		/// 
 		static class ParseException : Exception
 		{
-			this(ref FilePos fpos, string msg){ super("ParseError" ~ fpos.toString ~ ": " ~ msg); }
+			this(ref FilePos fpos, string msg)
+			{
+				super(format("ParseError%s: %s", fpos, msg)); }
 		}
 		throw new ParseException(pos, msg);
 	}
 
 	AstNode parseInt(){
-		if( t == TokTag.INT ){
+		if( t == Token.INT ){
 			auto n = AstNode.Int(t);
 			/*t = */input_next();
 			return n;
@@ -213,7 +219,7 @@ private:
 		}
 	}
 	AstNode parseReal(){
-		if( t == TokTag.REAL ){
+		if( t == Token.REAL ){
 			auto n = AstNode.Real(t);
 			/*t = */input_next();
 			return n;
@@ -222,7 +228,7 @@ private:
 		}
 	}
 	AstNode parseStr(){
-		if( t == TokTag.STR ){
+		if( t == Token.STR ){
 			auto n = AstNode.Str(t);
 			/*t = */input_next();
 			return n;
@@ -231,7 +237,7 @@ private:
 		}
 	}
 	AstNode parseIdent(){
-		if( t == TokTag.IDENT ){
+		if( t == Token.IDENT ){
 			auto n = AstNode.Ident(t);
 			/*t = */input_next();
 			return n;
@@ -241,7 +247,7 @@ private:
 	}
 	AstNode parseFun(){
 		auto trace = Trace("parseFun");
-		if( t==TokTag.LPAR || t==TokTag.LBRAC ){
+		if( t==Token.LPAR || t==Token.LBRAC ){
 			// funリテラル本体のparse	... 以下の//で括られたところが対象
 			//	fun f = /(){}/		定義
 			//	fun f = /{ ... }/	定義
@@ -250,13 +256,13 @@ private:
 			
 			auto fun_tok = t;
 			auto prm = AstNode.init;
-			if( t == TokTag.LPAR ){
+			if( t == Token.LPAR ){
 				/*t = */input_next_ws();
 				trace.opCall("Fun1, t=%s%s", t, t.pos);
 				prm = parseCommaList(&parseIdent);
 				/*t = */input_skip_ws();
 				trace.opCall("Fun2, t=%s%s", t, t.pos);
-				if( t != TokTag.RPAR ) error(t.pos, "fun: params RPAR does not close");
+				if( t != Token.RPAR ) error(t.pos, "fun: params RPAR does not close");
 				/*t = */input_next_ws();
 				trace.opCall("Fun3, t=%s%s", t, t.pos);
 			}
@@ -278,12 +284,12 @@ private:
 		if( auto n = parseReal() )	return n;
 		if( auto n = parseStr() )	return n;
 		if( auto n = parseIdent() )	return n;
-		if( t == TokTag.LPAR ){
+		if( t == Token.LPAR ){
 			trace.opCall("parsePrimary1, t=%s%s", t, t.pos);
 			/*t = */input_next_ws();
 			auto n = parseExpr();
 			/*t = */input_skip_ws();
-			if( t != TokTag.RPAR ){
+			if( t != Token.RPAR ){
 				error(t.pos, "Expr RPAR does not close");
 			}
 			/*t = */input_next();
@@ -296,14 +302,14 @@ private:
 		auto trace = Trace("parseCall0");
 		if( auto n = parsePrimary() ){
 			trace.opCall("parseCall1, t=%s%s", t, t.pos);
-			if( t == TokTag.LPAR ){
+			if( t == Token.LPAR ){
 				auto callee = n;
 				auto call_tok = t;
 				trace.opCall("Call{, t=%s%s", t, t.pos);
 				/*t = */input_next_ws();
 				auto args = parseCommaList(&parseExpr);
 				trace.opCall("}Call, t=%s%s", t, t.pos);
-				if( t != TokTag.RPAR ) error(t.pos, "CallExpr ')' is not closed");
+				if( t != Token.RPAR ) error(t.pos, "CallExpr ')' is not closed");
 				/*t = */input_next();
 				n = AstNode.Call(call_tok, callee, args);
 			}
@@ -316,7 +322,7 @@ private:
 		auto trace = Trace("parseFactor0");
 		if( auto n = parseCall() ){
 			trace.opCall("parseFactor1, t=%s%s", t, t.pos);
-			if( t == TokTag.MUL || t == TokTag.DIV ){
+			if( t == Token.MUL || t == Token.DIV ){
 				auto bin_tok = t;
 				auto lhs = n;
 				/*t = */input_next_ws;
@@ -331,7 +337,7 @@ private:
 	}
 	AstNode parseTerm(){
 		if( auto n = parseFactor() ){
-			if( t == TokTag.ADD || t == TokTag.SUB ){
+			if( t == Token.ADD || t == Token.SUB ){
 				auto bin_tok = t;
 				auto lhs = n;
 				/*t = */input_next_ws;
@@ -348,7 +354,7 @@ private:
 		auto trace = Trace("parseAssignExpr0");
 		if( auto n = parseTerm() ){
 			trace.opCall("parseAssignExpr1, t=%s%s", t, t.pos);
-			if( t == TokTag.ASSIGN ){
+			if( t == Token.ASSIGN ){
 				if( n.tag != AstTag.IDENT ){
 					error(t.pos, "AssinExpr lhs should be Ident");
 				}
@@ -373,19 +379,19 @@ private:
 	}
 	AstNode parseDef(){
 		auto trace = Trace("parseDef");
-		if( t == TokTag.VAR ){
+		if( t == Token.VAR ){
 			auto def_tok = t;
 			/*t = */input_next_ws();
 			
 			auto idt = parseIdent();
 			auto val = AstNode.init;
-			if( t == TokTag.ASSIGN ){
+			if( t == Token.ASSIGN ){
 				/*t = */input_next_ws();
 				val = parseExpr();
 			}
 			
 			return AstNode.Def(def_tok, idt, val);
-		}else if( t == TokTag.FUN ){
+		}else if( t == Token.FUN ){
 			// fun f=(){} 形式 || fun f={} 形式のみ
 			
 			auto def_tok = t;
@@ -396,7 +402,7 @@ private:
 			if( !idt ) error(t.pos, "def: ident does not exist");
 			trace.opCall("DefFun2, t=%s%s", t, t.pos);
 			
-			if( t != TokTag.ASSIGN ) error(t.pos, "def: initializer does not exist[1]");
+			if( t != Token.ASSIGN ) error(t.pos, "def: initializer does not exist[1]");
 			/*t = */input_next_ws();
 			trace.opCall("DefFun3, t=%s%s", t, t.pos);
 			
@@ -410,7 +416,7 @@ private:
 	}
 	AstNode parseBlock(){
 		auto trace = Trace("parseBlock");
-		if( t == TokTag.LBRAC ){
+		if( t == Token.LBRAC ){
 			/*t = */input_next_ws();
 			auto n = parseStmt();
 			auto tail = n;
@@ -418,7 +424,7 @@ private:
 				tail.next = parseStmt();
 				tail = tail.next;
 			}
-			if( t != TokTag.RBRAC ) error(t.pos, "Block stmt should be terminated by '}'");
+			if( t != Token.RBRAC ) error(t.pos, "Block stmt should be terminated by '}'");
 			/*t = */input_next();
 			//trace.opCall("parseBlock1, t=%s%s", t, t.pos);
 			return n;
@@ -431,26 +437,26 @@ private:
 		AstNode parseS(){
 			if( auto n = parseDef() )
 			{
-				if (t != TokTag.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
+				if (t != Token.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
 				return n;
 			}
 			if( auto n = parseExpr() )
 			{
 				trace.opCall("parseStmt/parseExpr t=%s%s", t.pos, t);
-				if (t != TokTag.NEWLINE && t != TokTag.RBRAC) error(t.pos, "Stmt should be terminated by NewLine/}");
+				if (t != Token.NEWLINE && t != Token.RBRAC) error(t.pos, "Stmt should be terminated by NewLine/}");
 				return n;
 			}
 			if( auto n = parseBlock() )
 			{
-				if (t != TokTag.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
+				if (t != Token.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
 				return n;
 			}
 			return null;
 		}
 		
 		if( auto n = parseS() ){
-		//	if( t != TokTag.RBRAC &&
-		//		t != TokTag.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
+		//	if( t != Token.RBRAC &&
+		//		t != Token.NEWLINE ) error(t.pos, "Stmt should be terminated by NewLine");
 		//	/*t = */input_next_ws();
 			input_skip_ws();
 			trace.opCall("parseSmt end : t = %s", t);
@@ -464,7 +470,7 @@ private:
 	AstNode parseCommaList(scope AstNode delegate() parseX){
 		if( auto n = parseX() ){
 			auto tail = n;
-			while( t == TokTag.COMMA ){
+			while( t == Token.COMMA ){
 				/*t = */input_next_ws();
 				tail.next = parseX();
 				if( !tail.next ) error(t.pos, "Comma separated error");

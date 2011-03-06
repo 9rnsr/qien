@@ -1,6 +1,6 @@
 ﻿module main;
 
-import lex;
+//import lex;
 import parse : parse;
 import semant, trans;
 import assem, frame, machine;
@@ -37,8 +37,8 @@ void run_program(string fname)
 {
 	trans.initialize();
 	
-	auto tok = toknize(fname);
-	auto ast = parse(tok);
+//	auto tok = toknize(fname);
+	auto ast = parse(fname/*tok*/);
 	auto typ = transProg(ast);
 	
 	auto m = new Machine();

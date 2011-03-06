@@ -3,6 +3,7 @@
 import parse, typ;
 import trans;
 import debugs;
+private import xtk.workaround : format;
 import xtk.match;
 import std.typecons;
 
@@ -49,7 +50,7 @@ void error(ref FilePos pos, string msg)
 	{
 		this(ref FilePos fpos, string msg)
 		{
-			super("SemanticError" ~ fpos.toString ~ ": " ~ msg);
+			super(format("SemanticError%s: %s", fpos, msg));
 		}
 	}
 
