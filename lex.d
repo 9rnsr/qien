@@ -20,7 +20,7 @@ private bool isbdigit(dchar c)	{ return c=='0' || c=='1'; }
 private bool isodigit(dchar c)	{ return '0'<=c && c<='7'; }
 
 private import std.conv : to;
-private import xtk.workaround : format;
+private import xtk.format : format;
 private import std.stdio : writefln;
 
 //debug = Lex;

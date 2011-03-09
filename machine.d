@@ -6,7 +6,7 @@ import assem;
 import xtk.tagunion;
 import std.string;
 import debugs;
-private import xtk.workaround : format;
+private import xtk.format : format;
 
 debug = machine;
 

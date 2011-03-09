@@ -3,7 +3,7 @@
 public import lex, sym;
 import std.range;
 import debugs;
-private import xtk.workaround : format;
+private import xtk.format : format;
 
 //debug = parse;
 

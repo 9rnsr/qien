@@ -2,7 +2,7 @@
 
 public import lex;
 import std.conv;
-import xtk.workaround : format;
+import xtk.format : format;
 
 
 void initialize()

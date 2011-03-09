@@ -3,7 +3,7 @@
 import parse, typ;
 import trans;
 import debugs;
-private import xtk.workaround : format;
+private import xtk.format : format;
 import xtk.match;
 import std.typecons;
 
