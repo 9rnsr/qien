@@ -55,15 +55,18 @@ EOS";
 	return 0;
 }
 
-int run_test()
+int run_test(string dir = "test")
 {
-	foreach (fname; listdir("test"))
+	auto resdir = dir ~ "_results";
+	if (!resdir.exists)
+		mkdir(resdir);
+	
+	foreach (fname; listdir(dir))
 	{
 		if (fname.getExt == "qi")
 		{
-			writefln("[] %s", fname);
-			
-			auto outfile = addExt(`test\` ~ fname, "out.txt");
+			auto outfile = resdir ~ sep ~ fname.addExt("log");
+			writefln("[] %s (%s)", fname, outfile);
 			
 			auto old_stdout = stdout;
 			stdout = File(outfile, "w+");
