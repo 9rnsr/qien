@@ -1,11 +1,8 @@
 ﻿module main;
 
-//import lex;
-import parse : parse;
-import semant, trans;
-import assem, frame, machine;
+import parse, semant, assem, machine;
+import frame;
 import std.stdio, std.getopt, std.file, std.path;
-import debugs;
 
 
 int main(string[] args)
@@ -35,27 +32,10 @@ int main(string[] args)
 
 void run_program(string fname)
 {
-	trans.initialize();
-	
-//	auto tok = toknize(fname);
-	auto ast = parse(fname/*tok*/);
-	auto typ = transProg(ast);
-	
-	auto m = new Machine();
-	m.assemble((void delegate(Frame, Instr[]) send)
-	{
-		foreach (f; trans.getResult())
-		{
-			auto stms = f.p[0];
-			auto frame = f.p[1];
-			
-			scope m = new Munch();
-			auto instr = m.munch(stms);
-			
-			send(frame, instr);
-		}
-	});
-	
+	auto ast = parseProg(fname);
+	auto frg = transProg(ast);
+	auto prg = munchProg(frg);
+	auto m = new Machine(prg);
 	m.run();
 }
 

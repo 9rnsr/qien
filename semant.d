@@ -2,6 +2,7 @@
 
 import parse, typ;
 import trans;
+import frame : Fragment;
 import debugs;
 private import xtk.format : format;
 import xtk.match;
@@ -10,8 +11,16 @@ import std.typecons;
 debug = semant;
 
 /// 
-Ty transProg(AstNode n)
+Fragment[] transProg(AstNode n)
 {
+	Fragment[] frag = [];
+
+	void procEntryExit(Level lv, Ex ex)
+	{
+		frag ~= trans.procEntryExit(lv, ex);
+	}
+	.procEntryExit = &procEntryExit;
+	
 	trans.initialize();
 	
 	auto tenv = new TypEnv();
@@ -27,21 +36,25 @@ Ty transProg(AstNode n)
 	tie[ty, ex] <<= transExp(outermost, tenv, venv, n);
 	
 	venv.mappingAccessType();
-	trans.procEntryExit(outermost, ex);
+	procEntryExit(outermost, ex);
+	
+	frag = frag.reverse;
 	
 	debug(semant)
 	{
 		debugout("========");
 		debugout("transProg = %s", ty);
-		foreach (f; trans.getResult()){
+		foreach (f; frag){
 			debugout("----");
 			debugout("%s : ", f.p[1].name);
 			f.debugOut();
 		}
 	}
 
-	return ty;
+	return frag;
 }
+
+private void delegate(Level, Ex) procEntryExit;
 
 /// 
 void error(ref FilePos pos, string msg)
@@ -286,7 +299,7 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("    venv = %s", venv);
 				
 				fn_venv.mappingAccessType();
-				trans.procEntryExit(fn_level, xb);
+				procEntryExit(fn_level, xb);
 				
 				if (esc)
 					return tuple(tenv.Unit,

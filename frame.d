@@ -105,8 +105,7 @@ public:
 			frameSize += slot.len;
 		}
 		
-		scope m = new Munch();
-		return	m.munch(
+		return	munch(
 					prologue ~
 						// FP + frameSize -> SP
 					[	T.MOVE(

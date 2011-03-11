@@ -11,21 +11,10 @@ import debugs;
 /**
  * 
  */
-Fragment[] frag;
 
 void initialize()
 {
 	frame.initialize();
-	
-	frag = [];
-}
-
-/**
- * 
- */
-Retro!(Fragment[]) getResult()
-{
-	return retro(frag);
 }
 
 
@@ -111,14 +100,14 @@ size_t getTypeSize(Ty ty)
 /**
  * 
  */
-void procEntryExit(Level level, Ex bodyexp)
+Fragment procEntryExit(Level level, Ex bodyexp)
 {
 	level.frame.formals[0].setSize(1);	// set size of slink
 	
 	auto ex = level.frame.procEntryExit1(unNx(bodyexp));
 	
 	auto lx = linearize(ex);
-	frag ~= new Fragment(lx, level.frame);
+	return new Fragment(lx, level.frame);
 }
 
 /**

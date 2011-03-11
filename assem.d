@@ -13,6 +13,25 @@ alias machine.Instruction I;
 
 //debug = munch;
 
+Instr[] munchProg(Fragment[] fragments)
+{
+	Instr[] instr;
+
+	foreach (f; fragments)
+	{
+		auto stms = f.p[0], frame = f.p[1];
+		
+	//	debug(machine) debugout("label to pc : %s(@%s) -> %08X",
+	//		frame.name, frame.name.num, code.length);
+		
+		instr ~= Instr.LBL(null, frame.name);
+		instr ~= frame.procEntryExit3(munch(stms));
+	}
+
+	return instr;
+}
+
+
 class Instr
 {
 	mixin TagUnion!(
@@ -31,27 +50,21 @@ class Instr
 	}
 }
 
-class Munch
+Instr[] munch(T.Stm[] stms)
 {
-	Instr[] munch(T.Stm[] stms)
-	{
-		instrlist = [];
-		
-		foreach (s; stms)
-			munchStm(s);
-		
-		return instrlist;
-	}
-
-private:
-	Instr[] instrlist;
-
+	Instr[] instrlist = [];
+	
 	void emit(Instr instr)
 	{
-		//debugout("emit : %s", instr);
+		Instruction mi;
+		if ((Instr.OPE[&mi, $] <<= instr) ||
+			(Instr.LBL[&mi, $] <<= instr) ||
+			(Instr.MOV[&mi, $] <<= instr) )
+		{
+//			writefln("emit : %s", mi);
+		}
 		instrlist ~= instr;
 	}
-
 	Temp result(void delegate(Temp) gen)
 	{
 		auto t = newTemp();
@@ -152,7 +165,6 @@ private:
 			}
 		);
 	}
-
 	void munchStm(T.Stm stm)
 	{
 		long	n;
@@ -207,49 +219,14 @@ private:
 					emit(Instr.OPE(I.MOV(t1, t2), [t1], [t2], []));
 				}
 			},
-
-
-		//	MOVE[&e1, MEM[T.TEMP(FP)]],{
-		//		debug(munch) debugout("munchStm : MOVE[&e1, MEM[T.TEMP(FP)]]");
-		//		emit(Instr.OPE(I.STB(munchExp(e1), 0), [], [], []));
-		//	},
-		//	MOVE[&e1, MEM[&e2]],{
-		//		debug(munch) debugout("munchStm : MOVE[&e1, MEM[&e2]]");
-		//		auto t1 = munchExp(e1);
-		//		auto t2 = munchExp(e2);
-		//		emit(Instr.OPE(I.LDI(t1, t), [], [], []));
-		//	},
-
-		//	MOVE[e, BIN[BinOp.ADD, MEM[T.TEMP(FP)], VINT[&disp]]],{
-		//		debug(munch) debugout("munchStm : MOVE[e, BIN[BinOp.ADD, MEM[T.TEMP(FP)], VINT[&disp]]]");
-		//		emit(Instr.OPE(I.STB(munchExp(e), cast(int)disp), [], [], []));
-		//	},
-		//	MOVE[e, MEM[T.TEMP(FP)]],{
-		//		debug(munch) debugout("munchStm : MOVE[e, MEM[T.TEMP(FP)]]");
-		//		emit(Instr.OPE(I.STB(munchExp(e), cast(int)0), [], [], []));
-		//	},
-		//	MOVE[VINT[&n], MEM[TEMP[&t]]],{
-		//		debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[TEMP[&t]]]");
-		//		emit(Instr.OPE(I.LDI(n, t), [], [], []));
-		//	},
-		//	MOVE[VINT[&n], &e],{
-		//		debug(munch) debugout("munchStm : MOVE[VINT[&n], &e]");
-		//		emit(Instr.OPE(I.LDI(n, munchExp(e)), [], [], []));
-		//		assert(0);
-		//	},
-		//	MOVE[&e1, &e2],{
-		//		debug(munch) debugout("munchStm : MOVE[&e1, &e2]");
-		//		auto t1 = munchExp(e1);
-		//		auto t2 = munchExp(e2);
-		//		emit(Instr.OPE(I.MOV(t1, t2), [], [], []));
-		//	},
-		//	MOVE[&t, &e],{
-		//		debug(munch) debugout("munchStm : MOVE[&t, &e]");
-		//		emit(Instr.OPE(I.MOV(t, munchExp(e)), [], [], []));
-		//	},
 			_,{
 				assert(0);
 			}
 		);
 	}
+	
+	foreach (s; stms)
+		munchStm(s);
+	
+	return instrlist;
 }

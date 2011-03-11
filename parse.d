@@ -8,7 +8,7 @@ private import xtk.format : format;
 //debug = parse;
 
 /// 
-AstNode parse(string fname/*Toknizer toknizer*/)
+AstNode parseProg(string fname/*Toknizer toknizer*/)
 {
 	scope ctxt = new ParseContext(fname/*toknizer*/);
 	

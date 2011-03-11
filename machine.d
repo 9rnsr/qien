@@ -178,28 +178,33 @@ private:
 	enum ContSize = 2;	// ret_pc + ret_ep
 
 public:
-	this()
+	this(Instr[] instr)
 	{
+		foreach (i; instr)
+		{
+			Label lbl;
+			Instruction mi;
+			match(i,
+				Instr.OPE[&mi, $],{
+					debug(machine) debugout("addInstruction %08X : %s", code.length, mi);
+					code ~= mi.assemble();
+				},
+				Instr.LBL[&mi, &lbl],{
+					label_to_pc[lbl.num] = code.length;
+				},
+				Instr.MOV[&mi, $],{
+					assert(0);	// yet not supported
+				},
+				_, {
+					assert(0);
+				});
+				
+		}
 	}
-
 	private this(in uint[] c)
 	{
 		code = c;
 	}
-	
-	void assemble(void delegate(void delegate(Frame, Instr[]) send) dg)
-	{
-		debug(machine) debugout("========");
-		debug(machine) debugout("instr[] = ");
-		dg(&addInstructions);
-	}
-
-/+	private void setStack(uint ofs, long val)
-	{
-		if (stack.length <= ofs)
-			stack.length *= 2;
-		stack[ofs] = val;
-	}+/
 
 	void run()
 	{
@@ -442,25 +447,6 @@ public:
 	}
 
 private:
-	void addInstructions(Frame frame, Instr[] instr)
-	{
-		label_to_pc[frame.name.num] = code.length;
-		debug(machine) debugout("label to pc : %s(@%s) -> %08X",
-			frame.name, frame.name.num, code.length);
-		
-		foreach (i; frame.procEntryExit3(instr))
-		{
-			Instruction mi;
-			if ((Instr.OPE[&mi, $] <<= i) ||
-				(Instr.LBL[&mi, $] <<= i) ||
-				(Instr.MOV[&mi, $] <<= i) )
-			{
-				debug(machine) debugout("addInstruction %08X : %s", code.length, mi);
-				code ~= mi.assemble();
-			}
-		}
-	}
-
 	/// 
 	void error(string msg)
 	{
