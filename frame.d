@@ -120,7 +120,7 @@ public:
 									T.TEMP(FP),
 									T.VINT(1))))])
 				~ instr
-				~ Instr.OPE(I.RET(), [], [CP, FP, SP], [ReturnLabel]);
+				~ Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel]);
 	}
 	
 	/**
