@@ -79,39 +79,49 @@ Instr[] munch(T.Stm[] stms)
 		Label	l;
 		T.Exp	e, e1, e2, disp;
 		T.Exp[]	el;
+		size_t	size;
 		long	n;
 		T.BinOp	binop;
 		
-		debug(munch) debugout("* munchExp : exp =");
-		debug(munch) debugout(exp);
 		return match(exp,
 			T.VINT[&n],{
-				debug(munch) debugout("munchExp : VINT[&n]");
+//				debug(munch) debugout("munchExp : VINT[&n]");
+//				debug(munch) debugout("         : exp = "), debugout(exp);
 				return result((Temp r){
 					emit(Instr.OPE(I.instr_imm(n, r.num), [], [r], []));
 				});
 			},
 			T.TEMP[&t],{
-				debug(munch) debugout("munchExp : TEMP[&t]");
+//				debug(munch) debugout("munchExp : TEMP[&t]");
+//				debug(munch) debugout("         : exp = "), debugout(exp);
 				return t;
 			},
-			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]],{
-				debug(munch) debugout("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
+			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], /*size=*/1],{
+			//	debug(munch) debugout("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
+			//	debug(munch) debugout("         : exp ="), debugout(exp);
+				debug(munch) writefln("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
+				debug(munch) writefln("         : exp = %s", exp);
 				auto d = munchExp(disp);
 				return result((Temp r){ 
 					emit(Instr.OPE(I.instr_add(FP.num, d.num, temp.num), [FP,d], [temp], []));	// FP + d -> temp
 					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));				// [temp] -> r
 				});
 			},
-			T.MEM[&e],{
-				debug(munch) debugout("munchExp : MEM[&e]");
+			T.MEM[&e, /*size=*/1],{
+			//	debug(munch) debugout("munchExp : MEM[&e]");
+			//	debug(munch) debugout("         : exp = "), debugout(exp);
+				debug(munch) writefln("munchExp : MEM[&e]");
+				debug(munch) writefln("         : exp = %s", exp);
 				auto t = munchExp(e);
 				return result((Temp r){ 
 					emit(Instr.OPE(I.instr_get(t.num, r.num), [t], [r], []));	// [t] -> r
 				});
 			},
 			T.BIN[&binop, &e1, &e2],{
-				debug(munch) debugout("munchExp : BIN[&binop, &e1, &e2]");
+			//	debug(munch) debugout("munchExp : BIN[&binop, &e1, &e2]");
+			//	debug(munch) debugout("         : exp ="), debugout(exp);
+				debug(munch) writefln("munchExp : BIN[&binop, &e1, &e2]");
+				debug(munch) writefln("         : exp = %s", exp);
 				auto t1 = munchExp(e1);
 				auto t2 = munchExp(e2);
 				return result((Temp r){
@@ -128,8 +138,13 @@ Instr[] munch(T.Stm[] stms)
 				});
 			},
 
-			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]], &el],{
-				debug(munch) debugout("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
+			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], &size], &el],{
+			//	debug(munch) debugout("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
+			//	debug(munch) debugout("         : exp ="), debugout(exp);
+				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
+				debug(munch) writefln("         : exp = %s", exp);
+				
+				assert(size == 2);
 				
 				emit(Instr.OPE(I.instr_pushc(), [], [CP,SP], []));
 				
@@ -167,7 +182,8 @@ Instr[] munch(T.Stm[] stms)
 				return Temp.init;
 			},
 			_,{
-				writef("munchExp : _ = "), debugout(exp);
+			//	writef("munchExp : _ = "), debugout(exp);
+				writef("munchExp : _ = %s", exp);
 				assert(0);
 				return Temp.init;
 			}
@@ -175,64 +191,96 @@ Instr[] munch(T.Stm[] stms)
 	}
 	void munchStm(T.Stm stm)
 	{
+		void movemem(Temp psrc, Temp pdst, size_t size)
+		{
+			assert(size >= 1);
+			if (size >= 2)
+				emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
+			foreach (ofs; 0 .. size)
+			{
+				if (ofs >= 1)
+				{
+					emit(Instr.OPE(I.instr_add(psrc.num, temp.num, psrc.num), [psrc,temp], [psrc], []));
+					emit(Instr.OPE(I.instr_add(pdst.num, temp.num, pdst.num), [pdst,temp], [pdst], []));
+				}
+				emit(Instr.OPE(I.instr_set(psrc.num, pdst.num), [psrc,pdst], [], []));
+			}
+		}
+		
+		
+		size_t	size, size1, size2;
 		long	n;
 		Temp	t;
 		T.Exp	e, e1 ,e2, disp;
 		Label	l;
 		
-		debug(munch) debugout("* munchStm : stm = ");
-		debug(munch) debugout(stm);
+		auto mem1 = T.MEM[&e1, &size1];
+		auto mem2 = T.MEM[&e2, &size2];
+		
 		match(stm,
-			T.MOVE[&e, T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp]]],{
-				if (T.VINT[&n] <<= e)
+			T.MOVE[mem1, mem2],{
+				debug(munch) debugout("munchStm : MOVE[mem1, mem2]");
+				debug(munch) debugout("         : stm = "), debugout(stm);
+				assert(size1 == size2);
+				movemem(munchExp(e1), munchExp(e2), size1);
+			},
+			T.MOVE[&e1,  mem2],{
+				if (T.VFUN[T.TEMP(FP), &l] <<= e1)
 				{
-					debug(munch) debugout("munchStm : MOVE[VINT[&n], MEM[BIN[BinOp.ADD, T.TEMP(FP), &disp]]]");
+					debug(munch) debugout("munchStm : MOVE[VFUN[FP, &l], mem2]");
+					debug(munch) debugout("         : stm = "), debugout(stm);
+					assert(size2 == 2);
+					// 1 -> temp
+					emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
 					
- 					auto d = munchExp(disp);
-					auto r = result((Temp r){ emit(Instr.OPE(I.instr_imm(n, r.num), [], [r], [])); });
-					emit(Instr.OPE(I.instr_add(FP.num, d.num, temp.num), [FP,d], [temp], []));
-					emit(Instr.OPE(I.instr_set(r.num, temp.num), [r,temp], [], []));
-				}
-				else if (T.VFUN[T.TEMP(FP), &l] <<= e)
-				{
-					// 関数値は常にescapeする==MEM[fp+n]にMOVEされる
-					// fp+nはn=0でも加算のIRが作られる(Frame.exp()参照)
-					debug(munch) debugout("munchStm : MOVE[VFUN[T.TEMP(FP), &l], MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&disp]]]]");
+					auto dst0 = munchExp(e2);
+					auto dst1 = result((Temp r){ emit(Instr.OPE(I.instr_add(dst0.num, temp.num, r.num), [dst0,temp], [r], [])); });
 					
-					auto d0 = munchExp(disp);
-					auto d1 = munchExp(T.BIN(T.BinOp.ADD, T.TEMP(d0), T.VINT(1)));
+					// label -> temp
+					emit(Instr.OPE(I.instr_imm(l.num, temp.num), [], [temp], []));
 					
-					auto ta = result((Temp r){ emit(Instr.OPE(I.instr_imm(l.num, r.num), [], [r], [])); });	//?
-					
-					emit(Instr.OPE(I.instr_add(FP.num, d0.num, temp.num), [FP, d0], [temp], []));
-					emit(Instr.OPE(I.instr_set(ta.num, temp.num), [ta,temp], [], []));
-					
-					emit(Instr.OPE(I.instr_add(FP.num, d1.num, temp.num), [FP, d1], [temp], []));
-					emit(Instr.OPE(I.instr_set(FP.num, temp.num), [FP,temp], [], []));
+					emit(Instr.OPE(I.instr_set(FP  .num, dst0.num), [FP  ,dst0], [], []));
+					emit(Instr.OPE(I.instr_set(temp.num, dst1.num), [temp,dst1], [], []));
 				}
 				else
 				{
-					assert(0);
+					debug(munch) debugout("munchStm : MOVE[&e1, mem2]");
+					debug(munch) debugout("         : stm = "), debugout(stm);
+					movemem(munchExp(e1), munchExp(e2), size2);
+					if (size2 == 1)	// 式の結果としてここでDereferenceが必要なポインタを返すことはない
+					{
+						auto  src = munchExp(e1);
+						auto pdst = munchExp(e2);
+						emit(Instr.OPE(I.instr_set(src.num, pdst.num), [src,pdst], [], []));
+					}
+					else
+						movemem(munchExp(e1), munchExp(e2), size2);
 				}
 			},
-			T.MOVE[T.VINT[&n], T.TEMP[&t]],{
-				debug(munch) debugout("munchStm : MOVE[VINT[&n], TEMP[&t]]");
-				
-				emit(Instr.OPE(I.instr_imm(n, t.num), [], [t], []));
+			T.MOVE[mem1, &e2],{
+				debug(munch) debugout("munchStm : MOVE[mem1, &e2]");
+				debug(munch) debugout("         : stm = "), debugout(stm);
+				assert(size1 == 1);	// MOVE先がMEMでないならテンポラリへの1ワードの転送しかない
+				auto psrc = munchExp(e1);
+				auto  dst = munchExp(e2);
+				emit(Instr.OPE(I.instr_get(psrc.num, dst.num), [psrc,dst], [], []));
 			},
 			T.MOVE[&e1, &e2],{
 				debug(munch) debugout("munchStm : MOVE[&e1, &e2]");
+				debug(munch) debugout("         : stm = "), debugout(stm);
 				
 				if (e2 == T.TEMP(NIL))
 					munchExp(e1);
 				else
 				{
-					auto t1 = munchExp(e1);
-					auto t2 = munchExp(e2);
-					emit(Instr.OPE(I.instr_mov(t1.num, t2.num), [t1], [t2], []));
+					auto src = munchExp(e1);
+					auto dst = munchExp(e2);
+					emit(Instr.OPE(I.instr_mov(src.num, dst.num), [src], [dst], []));
 				}
 			},
 			_,{
+				debug(munch) debugout("munchStm : __error__");
+				debug(munch) debugout("         : stm = "), debugout(stm);
 				assert(0);
 			}
 		);

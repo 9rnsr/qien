@@ -105,7 +105,7 @@ private:
 			std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
 			
 			// 複数ワードの値は必ずフレーム上に配置する
-			assert(size == 1 || (size > 1 && escape));
+			assert(size == 1 || (size >= 2 && escape));
 			
 			foreach (_; 0 .. size)
 				slotlist ~= level.frame.allocLocal(escape);
@@ -325,14 +325,7 @@ Ex assign(Level level, Access access, Ex value)
 		level = level.parent;
 	}
 	
-	size_t size;
-	size = 
-		match(	unEx(value),
-				T.VFUN[$],		{ return 2u;   },
-				T.MEM[_, &size],{ return size; },
-				_,				{ return 1u;   }	);
-	std.stdio.writefln("trans.assign value = %s, size = %s", value, size);
-	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slots[0], size)));
+	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slots[0], access.size)));
 }
 
 T.Exp unEx(Ex exp)

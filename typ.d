@@ -102,14 +102,17 @@ class Ty
 	
 	@property bool isInferred() const
 	{
-		return (tag != TyTag.VAR || tag != TyTag.META);
+		auto aty = actualType;
+		return (aty.tag != TyTag.VAR || aty.tag != TyTag.META);
 	}
 	
 	@property bool isFunction() const
 	{
+		auto aty = actualType;
 		return 
-			(tag == TyTag.APP && tycon == TyconTag.ARROW) ||
-			(tag == TyTag.POLY && tvars.length == 0 && polty.isFunction);
+			(aty.tag == TyTag.APP && aty.tycon == TyconTag.ARROW) ||
+			(aty.tag == TyTag.POLY && aty.tvars.length == 0 && aty.polty.isFunction);
+		
 	}
 	
 	string toString()
@@ -122,6 +125,12 @@ class Ty
 		case POLY:	return format("Poly(%s, %s)", tvars, polty);
 		case META:	return actty ? actty.toString : format("Meta(%s)", mvnum);
 		}
+	}
+	
+private:
+	const(Ty) actualType() const
+	{
+		return (tag == TyTag.META && actty) ? actty : this;
 	}
 }
 

@@ -291,7 +291,7 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				procEntryExit(fn_level, xb);
 				
-				auto xf  = trans.immediate(fn_level, esc);	// 関数値
+				auto xf = trans.immediate(fn_level, esc);	// 関数値
 				return tuple(tenv.Unit, trans.assign(level, acc, xf));
 			}
 			else
@@ -303,25 +303,28 @@ out(r){ assert(r.field[1] !is null); }body
 					error(n.pos, "infer error...");
 				
 				auto esc = mapVarEsc[id.sym].escape;
-				auto acc = level.allocLocal(ty, esc);
+				if (ty.isFunction) esc = true;	// alocation hack?
 				
 				//if (used(id) ){//todo
-				if (true)//todo
+				version (all)//todo
 				{
-					if (!venv.add(id.sym, acc, tenv.Poly([], ty)))
+					ty = tenv.Poly([], ty);
+					auto acc = level.allocLocal(ty, esc);
+					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
 				}
 				else
 				{
-					if (!venv.add(id.sym, acc, tenv.generalize(ty)))
+					ty = tenv.generalize(ty);
+					auto acc = level.allocLocal(ty, esc);
+					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
 				}
 //				debug(semant) debugout("var ty = %s", ty);
 //				debug(semant) debugout("    venv = %s", venv);
 				
 				//初期化式の結果を代入
-				return tuple(tenv.Unit,
-							trans.assign(level, acc, ex));
+				return tuple(tenv.Unit, trans.assign(level, acc, ex));
 			}
 		}
 	}
