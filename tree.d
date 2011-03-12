@@ -38,7 +38,7 @@ class Exp
 		"NAME",	Label,
 		"TEMP",	Temp,
 		"BIN", 	BinOp, Exp, Exp,
-		"MEM", 	Exp,
+		"MEM", 	Exp, size_t,		// MOVEの左辺/右辺にきた時、挙動がNワードのメモリ転送になる
 		"CALL",	Exp, Exp[],
 		"ESEQ",	Stm, Exp
 	);

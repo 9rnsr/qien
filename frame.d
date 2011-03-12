@@ -43,9 +43,9 @@ private:
 	this(Label label, bool[] escapes)
 	{
 		namelabel = label;
-		allocLocal(true/*escapes[0]*/);
+		allocLocal(true/*escapes[0]*/);	// (slink用、配置のためこんなことをしている)
 		allocLocal(true);				// frame  size用のSlotを追加
-		formals[1].setSize(1);	// set size of frameSize
+//		formals[1].setSize(1);	// set size of frameSize
 		foreach (esc; escapes[1..$])
 		{
 			allocLocal(true/*esc*/);	// formalsを割り当て	// 引数は常にescape
@@ -96,20 +96,22 @@ public:
 	}
 	Instr[] procEntryExit3(Instr[] instr)
 	{
-		T.Stm[] prologue;
+//		T.Stm[] prologue;
 		
-		size_t frameSize = 0;
-		foreach (slot; slotlist)
-		{
-			prologue ~= T.MOVE(T.VINT(frameSize), T.TEMP(slot.disp));
-			frameSize += slot.len;
-		}
+//		size_t frameSize = 0;
+//		foreach (slot; slotlist)
+//		{
+//			prologue ~= T.MOVE(T.VINT(frameSize), T.TEMP(slot.disp));
+//			frameSize += slot.len;
+//		}
+// 1スロット1ワードなのでいらない
+		size_t frameSize = slotlist.length;
 		
 		return	munch(
-					prologue ~
+//					prologue ~
 						// FP + frameSize -> SP
 					[	T.MOVE(
-							T.BIN(T.BinOp.ADD, T.VINT(frameSize), T.TEMP(FP)),
+							T.BIN(T.BinOp.ADD, T.TEMP(FP), T.VINT(frameSize)),
 							T.TEMP(SP)),
 						// frameSize -> [FP + 1]
 						T.MOVE(
@@ -118,15 +120,17 @@ public:
 								T.BIN(
 									T.BinOp.ADD,
 									T.TEMP(FP),
-									T.VINT(1))))])
+									T.VINT(1)), 1))])
 				~ instr
 				~ Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel]);
 	}
 	
 	/**
 	 * 現在のフレームポインタとSlotから、Slotの右辺値を取るT.Expに変換する
+	 * Params:
+	 *	size	= フレーム上のSlotの場合、そこをBaseに任意サイズのメモリを取るための追加引数
 	 */
-	T.Exp exp(T.Exp slink, Slot slot)
+	T.Exp exp(T.Exp slink, Slot slot, size_t size=1)
 	{
 		T.Exp x;
 		
@@ -140,11 +144,12 @@ public:
 					T.BIN(
 						T.BinOp.ADD,
 						slink,
-						T.TEMP(slot.disp)));
+						T.VINT(slot.ofs)), size);
 		}
 		else
 		{
-			return T.TEMP(slot.temp);
+			assert(size == 1);
+			return T.TEMP(slot.tmp);
 		}
 	}
 }
@@ -159,16 +164,17 @@ Frame newFrame(Label label, bool[] formals)
 
 /**
  * FrameやRegisterに保持された値へのアクセスを表現するクラス
+ * Slotはレジスタ/フレーム上問わず、1ワードの領域を確保する
  */
 class Slot
 {
 private:
 	enum{ IN_REG, IN_FRAME } int tag;
 	union{
-		size_t index;			// IN_FRAME: Slotリスト先頭からのindex
-		Temp temp;				// IN_REG: 
+		size_t ofs;			// IN_FRAME: Slotリスト先頭からのofs
+		Temp tmp;			// IN_REG: 
 	}
-	Temp disp;	// slotのEP基準でのoffsetを格納、procEntryExit3で値が確定
+//	Temp disp;	// slotのEP基準でのoffsetを格納、procEntryExit3で値が確定
 	size_t len;
 
 	this(Frame fr, bool esc)
@@ -176,21 +182,21 @@ private:
 		if (esc)
 		{
 			tag = IN_FRAME;
-			index = fr.formals.length;
+			ofs = fr.formals.length;
 		}
 		else
 		{
 			tag = IN_REG;
-			temp = newTemp();
+			tmp = newTemp();
 		}
-		disp = newTemp();
+//		disp = newTemp();
 	}
 
 public:
-	void setSize(size_t n)
+/+	void setSize(size_t n)
 	{
 		len = n;
-	}
+	}+/
 }
 
 /**

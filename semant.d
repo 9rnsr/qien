@@ -35,7 +35,6 @@ Fragment[] transProg(AstNode n)
 	Ex ex;
 	tie[ty, ex] <<= transExp(outermost, tenv, venv, n);
 	
-	venv.mappingAccessType();
 	procEntryExit(outermost, ex);
 	
 	frag = frag.reverse;
@@ -114,14 +113,6 @@ class VarEnv
 			return parent ? (s in parent) : null;
 	}
 
-	// 関数の各ローカル変数のAccessに型を与える
-	void mappingAccessType()
-	{
-		foreach (entry; tbl)
-			entry.access.setSize(entry.ty);
-		debugout("----");
-	}
-
 	string toString()
 	{
 		auto len = tbl.length;
@@ -169,7 +160,7 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("   instantiate -> %s", inst_t);
 //			//	debug(semant) debugout("   venv = %s", venv);
 				
-				return tuple(inst_t, trans.getVar(level, entry.access));
+				return tuple(inst_t, trans.variable(level, entry.access));
 			}
 			else
 			{
@@ -288,8 +279,7 @@ out(r){ assert(r.field[1] !is null); }body
 				// 現状、多相型は実体化できない。多相の場合はassertする
 				
 				auto esc = mapVarEsc[id.sym].escape;
-				auto xf  = trans.immediate(fn_level, esc);	// 関数値
-				auto acc = level.allocLocal(xf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
+				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
@@ -299,9 +289,9 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("    tf2 = %s", tf2);
 //				debug(semant) debugout("    venv = %s", venv);
 				
-				fn_venv.mappingAccessType();	// Need not to do
 				procEntryExit(fn_level, xb);
 				
+				auto xf  = trans.immediate(fn_level, esc);	// 関数値
 				return tuple(tenv.Unit, trans.assign(level, acc, xf));
 			}
 			else

@@ -5,6 +5,7 @@ import canon;
 import frame;
 import T = tree;
 import std.algorithm, std.range;
+import xtk.match;
 import debugs;
 
 
@@ -52,9 +53,9 @@ public:
 	 * Return:
 	 *   割り当てたAccessを返す
 	 */
-	Access allocLocal(Ex xv, bool escape)
+	Access allocLocal(Ty type, bool escape)
 	{
-		auto acc = new Access(this, frame.allocLocal(escape));
+		auto acc = new Access(this, type, escape/*frame.allocLocal(escape)*/);
 		acclist ~= acc;
 		return acc;
 	}
@@ -74,28 +75,48 @@ class Access
 {
 private:
 	Level	level;
-	Slot	slot;
+	Ty		type;
+//	Slot	slot;	//
+	bool	escape;
+	Slot[]	slotlist;		// 1Slot == 1word前提で考える
 
-	this(Level lv, Slot sl)
+	this(Level lv, Ty ty, /*Slot sl*/bool esc)
 	{
 		level = lv;
-		slot  = sl;
+		type = ty;
+//		slot  = sl;		// スロットの確保は型推論後
+		escape = esc;
 	}
 
-public:
+/+public:
 	void setSize(Ty ty)
 	{
 		slot.setSize(getTypeSize(ty));
-	}
-}
+	}+/
 
-size_t getTypeSize(Ty ty)
-{
-	assert(ty.isInferred);
-	if (ty.isFunction)
-		return 2;
-	else
-		return 1;
+	Slot[] slots()
+	{
+		if (slotlist.length == 0)
+		{
+			assert(type.isInferred);
+			// スロットが必要＝Tree作成段階にある＝型推論済み
+			auto size = type.isFunction ? 2 : 1;
+			
+			std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
+			
+			// 複数ワードの値は必ずフレーム上に配置する
+			assert(size == 1 || (size > 1 && escape));
+			
+			foreach (_; 0 .. size)
+				slotlist ~= level.frame.allocLocal(escape);
+		}
+		return slotlist;
+	}
+public:
+	size_t size()
+	{
+		return slots.length;
+	}
 }
 
 /**
@@ -103,7 +124,23 @@ size_t getTypeSize(Ty ty)
  */
 Fragment procEntryExit(Level level, Ex bodyexp)
 {
-	level.frame.formals[0].setSize(1);	// set size of slink
+/+	level.formals
+	{
+		各Accessのtypeは推論済みなので対応するSlotサイズを確定する
+		venv.mappingAccessType();
+
+		// 関数の各ローカル変数のAccessに型を与える
+		void mappingAccessType()
+		{
+			foreach (entry; tbl)
+				entry.access.setSize(entry.ty);
+			debugout("----");
+		}
+		
+	}+/
+	
+// 1slot=1wordなので不要
+//	level.frame.formals[0].setSize(1);	// set size of slink
 	
 	auto ex = level.frame.procEntryExit1(unNx(bodyexp));
 	
@@ -191,7 +228,7 @@ Ex immediate(Level fn_level, bool escape)
 /**
  * 変数値(整数、浮動小数点、関数値)を取り出すIRに変換する
  */
-Ex getVar(Level level, Access access)
+Ex variable(Level level, Access access)
 {
 	auto slink = T.TEMP(FP);
 //	debugout("* %s", slink);
@@ -201,7 +238,7 @@ Ex getVar(Level level, Access access)
 		level = level.parent;
 //		debugout("* %s", slink);
 	}
-	return new Ex(level.frame.exp(slink, access.slot));
+	return new Ex(level.frame.exp(slink, access.slots[0], access.size));
 }
 
 /**
@@ -245,7 +282,7 @@ Ex binDivInt(Ex lhs, Ex rhs)
 }
 
 /**
- * 二項加算のIRに変換する
+ * 
  */
 Ex sequence(Ex s1, Ex s2)
 {
@@ -255,9 +292,25 @@ Ex sequence(Ex s1, Ex s2)
 		return s2;
 }
 
-Ex ret(Ex x)
+/**
+ * 
+ */
+Ex ret(Ex value)
 {
-	return new Ex(T.MOVE(unEx(x), T.TEMP(RV)));
+	auto ex = unEx(value);
+	size_t size;
+	size = 
+		match(	ex,
+				T.VFUN[$],		{ return 2u;   },
+				T.MEM[_, &size],{ return size; },
+				_,				{ return 1u;   }	);
+	
+	if (size >= 2)
+	{
+		return new Ex(T.MOVE(ex, T.MEM(T.TEMP(RV), size)));
+	}
+	else
+		return new Ex(T.MOVE(ex, T.TEMP(RV)));
 }
 
 /**
@@ -271,7 +324,15 @@ Ex assign(Level level, Access access, Ex value)
 		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
 		level = level.parent;
 	}
-	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slot)));
+	
+	size_t size;
+	size = 
+		match(	unEx(value),
+				T.VFUN[$],		{ return 2u;   },
+				T.MEM[_, &size],{ return size; },
+				_,				{ return 1u;   }	);
+	std.stdio.writefln("trans.assign value = %s, size = %s", value, size);
+	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slots[0], size)));
 }
 
 T.Exp unEx(Ex exp)
