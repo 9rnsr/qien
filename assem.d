@@ -101,8 +101,9 @@ Instr[] munch(T.Stm[] stms)
 				debug(munch) writefln("         : exp = %s", exp);
 				auto d = munchExp(disp);
 				return result((Temp r){ 
-					emit(Instr.OPE(I.instr_add(FP.num, d.num, temp.num), [FP,d], [temp], []));	// FP + d -> temp
-					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));				// [temp] -> r
+				//	emit(Instr.OPE(I.instr_add(FP.num, d.num, temp.num), [FP,d], [temp], []));	// FP + d -> temp
+				//	emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));				// [temp] -> r
+					emit(Instr.OPE(I.instr_getx(FP.num, d.num, r.num), [FP,d], [r], []));		// [FP+d] -> r
 				});
 			},
 			T.MEM[&e, /*size=*/1],{
@@ -144,12 +145,14 @@ Instr[] munch(T.Stm[] stms)
 				auto d1 = munchExp(T.BIN(T.BinOp.ADD, T.TEMP(d0), T.VINT(1)));
 				
 				auto label = result((Temp r){
-					emit(Instr.OPE(I.instr_add(FP.num, d0.num, temp.num), [FP,d0], [temp], []));
-					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
+				//	emit(Instr.OPE(I.instr_add(FP.num, d0.num, temp.num), [FP,d0], [temp], []));
+				//	emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
+					emit(Instr.OPE(I.instr_getx(FP.num, d0.num, r.num), [FP,d0], [r], []));
 				});
 				auto slink = result((Temp r){
-					emit(Instr.OPE(I.instr_add(FP.num, d1.num, temp.num), [FP,d0], [temp], []));
-					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
+				//	emit(Instr.OPE(I.instr_add(FP.num, d1.num, temp.num), [FP,d0], [temp], []));
+				//	emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
+					emit(Instr.OPE(I.instr_getx(FP.num, d1.num, r.num), [FP,d1], [r], []));
 				});
 				auto fsize = result((Temp r){
 					emit(Instr.OPE(I.instr_imm(0xBEEF, r.num), [], [r], []));
@@ -184,7 +187,7 @@ Instr[] munch(T.Stm[] stms)
 		void movemem(Temp psrc, Temp pdst, size_t size)
 		{
 			assert(size >= 1);
-			if (size >= 2)
+		/+	if (size >= 2)
 				emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
 			foreach (ofs; 0 .. size)
 			{
@@ -194,7 +197,8 @@ Instr[] munch(T.Stm[] stms)
 					emit(Instr.OPE(I.instr_add(pdst.num, temp.num, pdst.num), [pdst,temp], [pdst], []));
 				}
 				emit(Instr.OPE(I.instr_set(psrc.num, pdst.num), [psrc,pdst], [], []));
-			}
+			}+/
+			emit(Instr.OPE(I.instr_copy(psrc.num, size, pdst.num), [psrc,pdst], [], []));
 		}
 		
 		
@@ -220,17 +224,19 @@ Instr[] munch(T.Stm[] stms)
 					debug(munch) debugout("munchStm : MOVE[VFUN[FP, &l], mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
 					assert(size2 == 2);
-					// 1 -> temp
-					emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
+				//	// 1 -> temp
+				//	emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
 					
 					auto dst0 = munchExp(e2);
-					auto dst1 = result((Temp r){ emit(Instr.OPE(I.instr_add(dst0.num, temp.num, r.num), [dst0,temp], [r], [])); });
+				//	auto dst1 = result((Temp r){ emit(Instr.OPE(I.instr_add(dst0.num, temp.num, r.num), [dst0,temp], [r], [])); });
 					
 					// label -> temp
 					emit(Instr.OPE(I.instr_imm(l.num, temp.num), [], [temp], []));
 					
 					emit(Instr.OPE(I.instr_set(FP  .num, dst0.num), [FP  ,dst0], [], []));
-					emit(Instr.OPE(I.instr_set(temp.num, dst1.num), [temp,dst1], [], []));
+				//	emit(Instr.OPE(I.instr_set(temp.num, dst1.num), [temp,dst1], [], []));
+					
+					emit(Instr.OPE(I.instr_seti(temp.num, dst0.num, 1), [temp,dst0], [], []));
 				}
 				else
 				{
