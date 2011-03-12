@@ -288,7 +288,8 @@ out(r){ assert(r.field[1] !is null); }body
 				// 現状、多相型は実体化できない。多相の場合はassertする
 				
 				auto esc = mapVarEsc[id.sym].escape;
-				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
+				auto xf  = trans.immediate(fn_level, esc);	// 関数値
+				auto acc = level.allocLocal(xf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
@@ -298,21 +299,10 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("    tf2 = %s", tf2);
 //				debug(semant) debugout("    venv = %s", venv);
 				
-				fn_venv.mappingAccessType();
+				fn_venv.mappingAccessType();	// Need not to do
 				procEntryExit(fn_level, xb);
 				
-				if (esc)
-					return tuple(tenv.Unit,
-							trans.assign(
-								level,
-								acc,
-								trans.makeClosure(level, fn_level, fn_label)));
-				else
-					return tuple(tenv.Unit,
-							trans.assign(
-								level,
-								acc,
-								trans.makeFunction(level, fn_level, fn_label)));
+				return tuple(tenv.Unit, trans.assign(level, acc, xf));
 			}
 			else
 			{

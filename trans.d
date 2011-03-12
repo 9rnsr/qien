@@ -47,11 +47,12 @@ public:
 	/**
 	 * 新しいローカル変数を割り当てる
 	 * Params:
-	 *   escape
+	 *   xv		= 初期値のIR(SlotSizeを確定するために必要)
+	 *   escape	= 束縛がエスケープするかどうか
 	 * Return:
 	 *   割り当てたAccessを返す
 	 */
-	Access allocLocal(Ty ty, bool escape)
+	Access allocLocal(Ex xv, bool escape)
 	{
 		auto acc = new Access(this, frame.allocLocal(escape));
 		acclist ~= acc;
@@ -168,9 +169,27 @@ Ex immediate(RealT v)
 	return null;
 	//return new Ex(VREAL(v));
 }
+/**
+ * 関数値を即値IRに変換する
+ * Params:
+ *   fn_level	= 関数本体が定義されているLevel
+ *   escape		= 関数値がescapeするかどうか
+ */
+Ex immediate(Level fn_level, bool escape)
+{
+	auto fn_label = fn_level.frame.name;
+	
+	if (escape)
+		return new Ex(T.ESEQ(
+			T.CLOS(fn_label),				// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==FPをすり替える)
+			T.VFUN(T.TEMP(FP), fn_label)));	// 現在のFPとクロージャ本体のラベルの組＝クロージャ値
+	else
+		return new Ex(
+			T.VFUN(T.TEMP(FP), fn_label));	// 現在のFPと関数本体のラベルの組＝関数値
+}
 
 /**
- * 変数値を取り出すIRに変換する
+ * 変数値(整数、浮動小数点、関数値)を取り出すIRに変換する
  */
 Ex getVar(Level level, Access access)
 {
@@ -183,21 +202,6 @@ Ex getVar(Level level, Access access)
 //		debugout("* %s", slink);
 	}
 	return new Ex(level.frame.exp(slink, access.slot));
-}
-
-/**
- * 関数値を取り出すIRに変換する
- */
-Ex getFun(Level level, Level bodylevel, Label label)
-{
-	auto funlevel = bodylevel.parent;
-	auto slink = T.TEMP(FP);
-	while (level !is funlevel)
-	{
-		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
-		level = level.parent;
-	}
-	return new Ex(T.VFUN(slink, label));
 }
 
 /**
@@ -254,31 +258,6 @@ Ex sequence(Ex s1, Ex s2)
 Ex ret(Ex x)
 {
 	return new Ex(T.MOVE(unEx(x), T.TEMP(RV)));
-}
-
-/**
- * Params:
- *   level:		関数が定義されるレベル
- *   bodylevel:	関数本体のレベル
- *   label:		関数本体のラベル
- */
-Ex makeFunction(Level level, Level bodylevel, Label label)
-{
-	return new Ex(
-		T.VFUN(T.TEMP(FP), label));	// 現在のFPと関数本体のラベルの組＝関数値
-}
-
-/**
- * Params:
- *   level:		クロージャが定義されるレベル
- *   bodylevel:	クロージャ本体のレベル
- *   label:		クロージャ本体のラベル
- */
-Ex makeClosure(Level level, Level bodylevel, Label label)
-{
-	return new Ex(T.ESEQ(
-		T.CLOS(label),					// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==FPをすり替える)
-		T.VFUN(T.TEMP(FP), label)));	// 現在のFPとクロージャ本体のラベルの組＝クロージャ値
 }
 
 /**
