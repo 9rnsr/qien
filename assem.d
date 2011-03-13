@@ -226,8 +226,8 @@ Instr[] munch(T.Stm[] stms)
 					// label -> temp
 					emit(Instr.OPE(I.instr_imm(l.num, temp.num), [], [temp], []));
 					
-					emit(Instr.OPE(I.instr_set(FP  .num, dst0.num), [FP  ,dst0], [], []));
-					emit(Instr.OPE(I.instr_set(temp.num, dst1.num), [temp,dst1], [], []));
+					emit(Instr.OPE(I.instr_set(temp.num, dst0.num), [temp,dst0], [], []));	// label -> mem2.ptr+d0
+					emit(Instr.OPE(I.instr_set(FP  .num, dst1.num), [FP  ,dst1], [], []));	// slink -> mem2.ptr+d1
 				}
 				else
 				{
