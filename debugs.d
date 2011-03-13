@@ -129,3 +129,75 @@ struct TreeOut
 }
 
 
+
+import std.typecons, std.traits, std.typetuple;
+import parse, trans, T = tree;
+import frame, assem, machine;
+
+struct Ast2Stm
+{
+	Frame frame;
+	AstNode node;
+}
+Ast2Stm[T.Stm] ast_to_stm;
+
+struct Frame2Instr
+{
+	Instr[] prologue;
+	Tuple!(AstNode, T.Stm, Instr[])[] bodycode;
+	Instr[] epilogue;
+}
+Frame2Instr[Frame] frame_to_instr;
+
+void debugCodeMap(Level lv, AstNode n, Ex x)
+{
+	// private field にアクセス
+//	auto frame = __traits(getMember, lv, "frame");	// 駄目
+	auto frame = lv.tupleof[staticIndexOf!(Frame, FieldTypeTuple!Level)];
+	ast_to_stm[unNx(x)] = Ast2Stm(frame, n);
+}
+void debugCodeMap(T.Stm stm, Instr[] instr)
+{
+	if (auto ps = stm in ast_to_stm)
+	{
+		if (ps.frame in frame_to_instr)
+			frame_to_instr[ps.frame].bodycode ~= tuple(ps.node, stm, instr);
+		else
+			frame_to_instr[ps.frame] = Frame2Instr(null, [tuple(ps.node, stm, instr)], null);
+	}
+}
+Instr[] debugCodeMapPrologue(Frame frame, Instr[] instr)
+{
+	frame_to_instr[frame].prologue = instr;
+	return instr;
+}
+Instr[] debugCodeMapEpilogue(Frame frame, Instr[] instr)
+{
+	frame_to_instr[frame].epilogue = instr;
+	return instr;
+}
+void debugCodeMapPrint()
+{
+	writefln("/*****************************");
+	writefln(" * statement to instructions");
+	writefln(" *****************************/");
+	foreach (f, f2i; frame_to_instr)
+	{
+		writefln("Frame.name : %s", f.name);
+		writefln("--");
+		(new Machine(f2i.prologue)).print();
+		foreach (tup; f2i.bodycode)
+		{
+			auto n = tup[0];
+			auto stm = tup[1];
+			auto instr = tup[2];
+			writefln("%s:%s %s", n.pos.line+1, n.pos.column+1, n.toShortString);
+		//	debugout(stm);
+			(new Machine(instr)).print();
+		}
+		writefln("--");
+		(new Machine(f2i.epilogue)).print();
+		writefln("----");
+	}
+	writefln("========\n");
+}

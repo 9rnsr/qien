@@ -404,6 +404,7 @@ public:
 		while (pc < code.length)
 		{
 			string msg;
+			auto pc_ = pc;
 			
 			MapInstr x; x.word = code[pc++];
 			switch (x.OPE)
@@ -413,7 +414,7 @@ public:
 				assert(0);
 			}
 			
-			std.stdio.writefln("%08X : %s", pc, msg);
+			std.stdio.writefln("%08X : %s", pc_, msg);
 		}
 	}
 	

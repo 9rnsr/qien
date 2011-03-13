@@ -72,7 +72,11 @@ int run_test(string dir = "test")
 			stdout = File(outfile, "w+");
 			scope(exit) stdout = old_stdout;
 			
-			run_program(`test\` ~ fname);
+			try{
+				run_program(`test\` ~ fname);
+			}catch(Throwable e){
+				writefln("%s", e);
+			}
 		}
 	}
 	return 0;

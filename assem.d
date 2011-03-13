@@ -11,7 +11,7 @@ import debugs;
 public import machine;
 alias machine.Instruction I;
 
-debug = munch;
+//debug = munch;
 
 Instr[] munchProg(Fragment[] fragments)
 {
@@ -27,6 +27,8 @@ Instr[] munchProg(Fragment[] fragments)
 		instr ~= Instr.LBL(null, frame.name);
 		instr ~= frame.procEntryExit3(munch(stms));
 	}
+
+	debugCodeMapPrint();
 
 	return instr;
 }
@@ -173,8 +175,10 @@ Instr[] munch(T.Stm[] stms)
 			}
 		);
 	}
-	void munchStm(T.Stm stm)
+	Instr[] munchStm(T.Stm stm)
 	{
+		auto instrLen = instrlist.length;
+		
 		long	n;
 		Temp	t;
 		T.Exp	e, e1 ,e2, disp;
@@ -236,10 +240,11 @@ Instr[] munch(T.Stm[] stms)
 				assert(0);
 			}
 		);
+		
+		return instrlist[instrLen .. $];
 	}
 	
 	foreach (s; stms)
-		munchStm(s);
-	
+		debugCodeMap(s, munchStm(s));
 	return instrlist;
 }

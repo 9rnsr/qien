@@ -8,7 +8,7 @@ private import xtk.format : format;
 import xtk.match;
 import std.typecons;
 
-debug = semant;
+//debug = semant;
 
 /// 
 Fragment[] transProg(AstNode n)
@@ -366,6 +366,7 @@ out(r){ assert(r.field[1] !is null); }body
 		tie[ty, x] <<= trexp(n);
 		if (n.next is null)
 			x = trans.ret(x);
+		debugCodeMap(level, n, x);
 		ex = trans.sequence(ex, x);
 	}while ((n = n.next) !is null)
   }

@@ -44,6 +44,23 @@ struct FilePos
 {
 	ulong line;
 	ulong column;
+	
+	int opCmp(ref const(FilePos) rhs)
+	{
+		if (this.line == rhs.line)
+		{
+			if (this.column == rhs.column)
+				return 0;
+			else if (this.column < rhs.column)
+				return -1;
+			else
+				return +1;
+		}
+		else if (this.line < rhs.line)
+			return -1;
+		else
+			return +1;
+	}
 }
 
 /// 

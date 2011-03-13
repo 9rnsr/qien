@@ -117,8 +117,8 @@ class AstNode
 		return n;
 	}
 	
-	string toString(){
-//		return (cast(const)this).toString();
+	string toShortString()
+	{
 		string res;
 		final switch( tag ){
 			case AstTag.NOP:	res = "#";									break;
@@ -135,6 +135,11 @@ class AstNode
 			case AstTag.ASSIGN:	res = format("(= %s %s)",    lhs, rhs);		break;
 			case AstTag.DEF:	res = format("(def %s %s)",  lhs, rhs);		break;
 		}
+		return res;
+	}
+	string toString(){
+//		return (cast(const)this).toString();
+		auto res = toShortString();
 		if( next ){
 			res ~= " " ~ next.toString();
 		}

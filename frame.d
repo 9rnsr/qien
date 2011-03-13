@@ -105,7 +105,7 @@ public:
 			frameSize += slot.len;
 		}
 		
-		return	munch(
+		return	debugCodeMapPrologue(this, munch(
 					prologue ~
 						// FP + frameSize -> SP
 					[	T.MOVE(
@@ -118,9 +118,9 @@ public:
 								T.BIN(
 									T.BinOp.ADD,
 									T.TEMP(FP),
-									T.VINT(1))))])
+									T.VINT(1))))]))
 				~ instr
-				~ Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel]);
+				~ debugCodeMapEpilogue(this, [Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel])]);
 	}
 	
 	/**
