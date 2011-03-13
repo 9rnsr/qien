@@ -1,0 +1,8 @@
+fun f = (x){
+	fun g = (y){
+		x + y
+	}
+	g
+}
+var a = f(10)
+a(20)

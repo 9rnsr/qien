@@ -35,7 +35,6 @@ Fragment[] transProg(AstNode n)
 	Ex ex;
 	tie[ty, ex] <<= transExp(outermost, tenv, venv, n);
 	
-	venv.mappingAccessType();
 	procEntryExit(outermost, ex);
 	
 	frag = frag.reverse;
@@ -114,14 +113,6 @@ class VarEnv
 			return parent ? (s in parent) : null;
 	}
 
-	// 関数の各ローカル変数のAccessに型を与える
-	void mappingAccessType()
-	{
-		foreach (entry; tbl)
-			entry.access.setSize(entry.ty);
-		debugout("----");
-	}
-
 	string toString()
 	{
 		auto len = tbl.length;
@@ -169,7 +160,7 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("   instantiate -> %s", inst_t);
 //			//	debug(semant) debugout("   venv = %s", venv);
 				
-				return tuple(inst_t, trans.getVar(level, entry.access));
+				return tuple(inst_t, trans.variable(level, entry.access));
 			}
 			else
 			{
@@ -298,21 +289,10 @@ out(r){ assert(r.field[1] !is null); }body
 //				debug(semant) debugout("    tf2 = %s", tf2);
 //				debug(semant) debugout("    venv = %s", venv);
 				
-				fn_venv.mappingAccessType();
 				procEntryExit(fn_level, xb);
 				
-				if (esc)
-					return tuple(tenv.Unit,
-							trans.assign(
-								level,
-								acc,
-								trans.makeClosure(level, fn_level, fn_label)));
-				else
-					return tuple(tenv.Unit,
-							trans.assign(
-								level,
-								acc,
-								trans.makeFunction(level, fn_level, fn_label)));
+				auto xf = trans.immediate(fn_level, esc);	// 関数値
+				return tuple(tenv.Unit, trans.assign(level, acc, xf));
 			}
 			else
 			{
@@ -323,25 +303,28 @@ out(r){ assert(r.field[1] !is null); }body
 					error(n.pos, "infer error...");
 				
 				auto esc = mapVarEsc[id.sym].escape;
-				auto acc = level.allocLocal(ty, esc);
+				if (ty.isFunction) esc = true;	// alocation hack?
 				
 				//if (used(id) ){//todo
-				if (true)//todo
+				version (all)//todo
 				{
-					if (!venv.add(id.sym, acc, tenv.Poly([], ty)))
+					ty = tenv.Poly([], ty);
+					auto acc = level.allocLocal(ty, esc);
+					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
 				}
 				else
 				{
-					if (!venv.add(id.sym, acc, tenv.generalize(ty)))
+					ty = tenv.generalize(ty);
+					auto acc = level.allocLocal(ty, esc);
+					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
 				}
 //				debug(semant) debugout("var ty = %s", ty);
 //				debug(semant) debugout("    venv = %s", venv);
 				
 				//初期化式の結果を代入
-				return tuple(tenv.Unit,
-							trans.assign(level, acc, ex));
+				return tuple(tenv.Unit, trans.assign(level, acc, ex));
 			}
 		}
 	}

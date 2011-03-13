@@ -167,7 +167,7 @@ template DefInstr_()
 	{
 		enum gen = q{ [b2w(ope, cast(ubyte)a[0], 0,0)] };
 		enum run = q{
-			std.stdio.writefln("> %s", __LINE__);
+		//	std.stdio.writefln("> %s", __LINE__);
 		//	debug(machine) std.stdio.writefln("> map %s -> %08X",
 		//			registers[x.SRC], cast(size_t)label_to_pc[cast(size_t)registers[x.SRC]]);
 			stack[cp] = pc;
@@ -426,7 +426,7 @@ public:
 				{
 					auto pc_ = pc;
 					std.stdio.writefln("%08X : %-6s%-32s[SRC] = %s, [SRC2] = %s, [DST] = %s",
-						pc_, "$name", ${ mixin("DefInstr.$name.str") },
+						instr_pc, "$name", ${ mixin("DefInstr.$name.str") },
 						registers[x.SRC], registers[x.SRC2], registers[x.DST]);
 					pc = pc_;
 				}
@@ -465,6 +465,8 @@ public:
 		
 		while (pc < code.length)
 		{
+			auto instr_pc = pc;
+			
 			MapInstr x; x.word = code[pc++];
 			switch (x.OPE)
 			{
