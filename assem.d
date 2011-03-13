@@ -85,20 +85,18 @@ Instr[] munch(T.Stm[] stms)
 		
 		return match(exp,
 			T.VINT[&n],{
-//				debug(munch) debugout("munchExp : VINT[&n]");
-//				debug(munch) debugout("         : exp = "), debugout(exp);
+				debug(munch) writefln("munchExp : VINT[&n]");
+				debug(munch) writefln("         : exp = %s", exp);
 				return result((Temp r){
 					emit(Instr.OPE(I.instr_imm(n, r.num), [], [r], []));
 				});
 			},
 			T.TEMP[&t],{
-//				debug(munch) debugout("munchExp : TEMP[&t]");
-//				debug(munch) debugout("         : exp = "), debugout(exp);
+				debug(munch) writefln("munchExp : TEMP[&t]");
+				debug(munch) writefln("         : exp = %s", exp);
 				return t;
 			},
 			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], /*size=*/1],{
-			//	debug(munch) debugout("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
-			//	debug(munch) debugout("         : exp ="), debugout(exp);
 				debug(munch) writefln("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
 				debug(munch) writefln("         : exp = %s", exp);
 				auto d = munchExp(disp);
@@ -108,8 +106,6 @@ Instr[] munch(T.Stm[] stms)
 				});
 			},
 			T.MEM[&e, /*size=*/1],{
-			//	debug(munch) debugout("munchExp : MEM[&e]");
-			//	debug(munch) debugout("         : exp = "), debugout(exp);
 				debug(munch) writefln("munchExp : MEM[&e]");
 				debug(munch) writefln("         : exp = %s", exp);
 				auto t = munchExp(e);
@@ -118,8 +114,6 @@ Instr[] munch(T.Stm[] stms)
 				});
 			},
 			T.BIN[&binop, &e1, &e2],{
-			//	debug(munch) debugout("munchExp : BIN[&binop, &e1, &e2]");
-			//	debug(munch) debugout("         : exp ="), debugout(exp);
 				debug(munch) writefln("munchExp : BIN[&binop, &e1, &e2]");
 				debug(munch) writefln("         : exp = %s", exp);
 				auto t1 = munchExp(e1);
@@ -139,8 +133,6 @@ Instr[] munch(T.Stm[] stms)
 			},
 
 			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], &size], &el],{
-			//	debug(munch) debugout("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
-			//	debug(munch) debugout("         : exp ="), debugout(exp);
 				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
 				debug(munch) writefln("         : exp = %s", exp);
 				
@@ -171,8 +163,6 @@ Instr[] munch(T.Stm[] stms)
 					emit(Instr.OPE(I.instr_pushs(ta.num), [SP, ta], [], []));
 				}
 				
-			//	emit(Instr.OPE(I.instr_imm(label.num, temp.num), [], [temp], []));
-			//	emit(Instr.OPE(I.instr_call(temp.num), [CP,SP,temp], [FP,RV], []));
 				emit(Instr.OPE(I.instr_call(label.num), [CP,SP,label], [FP,RV], []));
 				
 				return result((Temp r){ emit(Instr.OPE(I.instr_mov(RV.num, r.num), [RV], [r], [])); });

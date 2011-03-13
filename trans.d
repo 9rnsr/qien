@@ -76,33 +76,26 @@ class Access
 private:
 	Level	level;
 	Ty		type;
-//	Slot	slot;	//
 	bool	escape;
 	Slot[]	slotlist;		// 1Slot == 1word前提で考える
 
-	this(Level lv, Ty ty, /*Slot sl*/bool esc)
+	this(Level lv, Ty ty, bool esc)
 	{
 		level = lv;
 		type = ty;
-//		slot  = sl;		// スロットの確保は型推論後
+	//	slotlist  = sl;		// スロットの確保は型推論後
 		escape = esc;
 	}
-
-/+public:
-	void setSize(Ty ty)
-	{
-		slot.setSize(getTypeSize(ty));
-	}+/
 
 	Slot[] slots()
 	{
 		if (slotlist.length == 0)
 		{
-			assert(type.isInferred);
 			// スロットが必要＝Tree作成段階にある＝型推論済み
+			assert(type.isInferred);
 			auto size = type.isFunction ? 2 : 1;
 			
-			std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
+			//std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
 			
 			// 複数ワードの値は必ずフレーム上に配置する
 			assert(size == 1 || (size >= 2 && escape));
@@ -124,24 +117,6 @@ public:
  */
 Fragment procEntryExit(Level level, Ex bodyexp)
 {
-/+	level.formals
-	{
-		各Accessのtypeは推論済みなので対応するSlotサイズを確定する
-		venv.mappingAccessType();
-
-		// 関数の各ローカル変数のAccessに型を与える
-		void mappingAccessType()
-		{
-			foreach (entry; tbl)
-				entry.access.setSize(entry.ty);
-			debugout("----");
-		}
-		
-	}+/
-	
-// 1slot=1wordなので不要
-//	level.frame.formals[0].setSize(1);	// set size of slink
-	
 	auto ex = level.frame.procEntryExit1(unNx(bodyexp));
 	
 	auto lx = linearize(ex);

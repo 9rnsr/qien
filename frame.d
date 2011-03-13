@@ -28,7 +28,7 @@ void initialize()
 /**
  * このVirtualMachineにおけるワードサイズ
  */
-enum size_t wordSize = 4;
+//enum size_t wordSize = 8;
 
 
 /**
@@ -45,7 +45,6 @@ private:
 		namelabel = label;
 		allocLocal(true/*escapes[0]*/);	// (slink用、配置のためこんなことをしている)
 		allocLocal(true);				// frame  size用のSlotを追加
-//		formals[1].setSize(1);	// set size of frameSize
 		foreach (esc; escapes[1..$])
 		{
 			allocLocal(true/*esc*/);	// formalsを割り当て	// 引数は常にescape
@@ -96,33 +95,24 @@ public:
 	}
 	Instr[] procEntryExit3(Instr[] instr)
 	{
-//		T.Stm[] prologue;
-		
-//		size_t frameSize = 0;
-//		foreach (slot; slotlist)
-//		{
-//			prologue ~= T.MOVE(T.VINT(frameSize), T.TEMP(slot.disp));
-//			frameSize += slot.len;
-//		}
-// 1スロット1ワードなのでいらない
 		size_t frameSize = slotlist.length;
 		
-		return	munch(
-//					prologue ~
-						// FP + frameSize -> SP
-					[	T.MOVE(
-							T.BIN(T.BinOp.ADD, T.TEMP(FP), T.VINT(frameSize)),
-							T.TEMP(SP)),
-						// frameSize -> [FP + 1]
-						T.MOVE(
-							T.VINT(frameSize),
-							T.MEM(
-								T.BIN(
-									T.BinOp.ADD,
-									T.TEMP(FP),
-									T.VINT(1)), 1))])
-				~ instr
-				~ Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel]);
+		return
+			munch([
+				// FP + frameSize -> SP
+				T.MOVE(
+					T.BIN(T.BinOp.ADD, T.TEMP(FP), T.VINT(frameSize)),
+					T.TEMP(SP)),
+				// frameSize -> [FP + 1]
+				T.MOVE(
+					T.VINT(frameSize),
+					T.MEM(
+						T.BIN(
+							T.BinOp.ADD,
+							T.TEMP(FP),
+							T.VINT(1)), 1))	])
+			~ instr
+			~ Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel]);
 	}
 	
 	/**
@@ -171,10 +161,9 @@ class Slot
 private:
 	enum{ IN_REG, IN_FRAME } int tag;
 	union{
-		size_t ofs;			// IN_FRAME: Slotリスト先頭からのofs
-		Temp tmp;			// IN_REG: 
+		size_t ofs;		// IN_FRAME: Slotリスト先頭からのofs
+		Temp   tmp;		// IN_REG: 
 	}
-//	Temp disp;	// slotのEP基準でのoffsetを格納、procEntryExit3で値が確定
 	size_t len;
 
 	this(Frame fr, bool esc)
@@ -189,14 +178,7 @@ private:
 			tag = IN_REG;
 			tmp = newTemp();
 		}
-//		disp = newTemp();
 	}
-
-public:
-/+	void setSize(size_t n)
-	{
-		len = n;
-	}+/
 }
 
 /**
