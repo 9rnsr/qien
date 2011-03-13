@@ -55,7 +55,7 @@ public:
 	 */
 	Access allocLocal(Ty type, bool escape)
 	{
-		auto acc = new Access(this, type, escape/*frame.allocLocal(escape)*/);
+		auto acc = new Access(this, type, escape);
 		acclist ~= acc;
 		return acc;
 	}
@@ -299,7 +299,6 @@ Ex assign(Level level, Access access, Ex value)
 		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
 		level = level.parent;
 	}
-	
 	return new Ex(T.MOVE(unEx(value), level.frame.exp(slink, access.slots[0], access.size)));
 }
 

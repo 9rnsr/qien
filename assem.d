@@ -198,28 +198,25 @@ Instr[] munch(T.Stm[] stms)
 		}
 		
 		
-		size_t	size, size1, size2;
-		long	n;
-		Temp	t;
-		T.Exp	e, e1 ,e2, disp;
+		size_t	s1, s2;
+		T.Exp	e1 ,e2;
 		Label	l;
 		
-		auto mem1 = T.MEM[&e1, &size1];
-		auto mem2 = T.MEM[&e2, &size2];
-		
+		auto mem1 = T.MEM[&e1, &s1];
+		auto mem2 = T.MEM[&e2, &s2];
 		match(stm,
 			T.MOVE[mem1, mem2],{
 				debug(munch) debugout("munchStm : MOVE[mem1, mem2]");
 				debug(munch) debugout("         : stm = "), debugout(stm);
-				assert(size1 == size2);
-				movemem(munchExp(e1), munchExp(e2), size1);
+				assert(s1 == s2);
+				movemem(munchExp(e1), munchExp(e2), s1);
 			},
 			T.MOVE[&e1,  mem2],{
 				if (T.VFUN[T.TEMP(FP), &l] <<= e1)
 				{
 					debug(munch) debugout("munchStm : MOVE[VFUN[FP, &l], mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
-					assert(size2 == 2);
+					assert(s2 == 2);
 					// 1 -> temp
 					emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
 					
@@ -236,21 +233,21 @@ Instr[] munch(T.Stm[] stms)
 				{
 					debug(munch) debugout("munchStm : MOVE[&e1, mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
-					movemem(munchExp(e1), munchExp(e2), size2);
-					if (size2 == 1)	// 式の結果としてここでDereferenceが必要なポインタを返すことはない
+					movemem(munchExp(e1), munchExp(e2), s2);
+					if (s2 == 1)	// 式の結果としてここでDereferenceが必要なポインタを返すことはない
 					{
 						auto  src = munchExp(e1);
 						auto pdst = munchExp(e2);
 						emit(Instr.OPE(I.instr_set(src.num, pdst.num), [src,pdst], [], []));
 					}
 					else
-						movemem(munchExp(e1), munchExp(e2), size2);
+						movemem(munchExp(e1), munchExp(e2), s2);
 				}
 			},
 			T.MOVE[mem1, &e2],{
 				debug(munch) debugout("munchStm : MOVE[mem1, &e2]");
 				debug(munch) debugout("         : stm = "), debugout(stm);
-				assert(size1 == 1);	// MOVE先がMEMでないならテンポラリへの1ワードの転送しかない
+				assert(s1 == 1);	// MOVE先がMEMでないならテンポラリへの1ワードの転送しかない
 				auto psrc = munchExp(e1);
 				auto  dst = munchExp(e2);
 				emit(Instr.OPE(I.instr_get(psrc.num, dst.num), [psrc,dst], [], []));
