@@ -121,20 +121,6 @@ template DefInstr_()
 		enum run = q{ registers[x.DST] = heap_mem(registers[x.SRC]); };
 		enum str = q{ format("[r%s] -> r%s", x.SRC, x.DST) };
 	}
-	// [reg+#n] -> reg
-	struct geti
-	{
-		enum gen = q{ [b2w(ope, cast(ubyte)a[0], cast(ubyte)a[1], cast(ubyte)a[2])] };
-		enum run = q{ registers[x.DST] = heap_mem(registers[x.SRC] + x.SRC2); };
-		enum str = q{ format("[r%s+#%s] -> r%s", x.SRC, x.SRC2, x.DST) };
-	}
-	// [reg+disp] -> reg
-	struct getx
-	{
-		enum gen = q{ [b2w(ope, cast(ubyte)a[0], cast(ubyte)a[1], cast(ubyte)a[2])] };
-		enum run = q{ registers[x.DST] = heap_mem(registers[x.SRC] + registers[x.SRC2]); };
-		enum str = q{ format("[r%s+r%s] -> r%s", x.SRC, x.SRC2, x.DST) };
-	}
 	// reg -> [reg]
 	struct set
 	{
@@ -146,41 +132,6 @@ template DefInstr_()
 			}
 		};
 		enum str = q{ format("r%s -> [r%s]", x.SRC, x.DST) };
-	}
-	// reg -> [reg+#n]
-	struct seti
-	{
-		enum gen = q{ [b2w(ope, cast(ubyte)a[0], cast(ubyte)a[2], cast(ubyte)a[1])] };
-		enum run = q{
-			heap_mem(registers[x.DST] + x.SRC2) = registers[x.SRC];
-			debug(machine){
-				if (((registers[x.DST] + x.SRC2) & 0xFFFFFFFF_00000000) == 0)
-					printStack();
-			}
-		};
-		enum str = q{ format("r%s -> [r%s+#%s]", x.SRC, x.DST, x.SRC2) };
-	}
-	// reg -> [reg+disp]
-	struct setx
-	{
-		enum gen = q{ [b2w(ope, cast(ubyte)a[0], cast(ubyte)a[1], cast(ubyte)a[2])] };
-		enum run = q{
-			heap_mem(registers[x.DST] + registers[x.SRC2]) = registers[x.SRC];
-			debug(machine){
-				if (((registers[x.DST] + registers[x.SRC2]) & 0xFFFFFFFF_00000000) == 0)
-					printStack();
-			}
-		};
-		enum str = q{ format("r%s -> [r%s+r%s]", x.SRC, x.DST, x.SRC2) };
-	}
-	struct copy
-	{
-		enum gen = q{ [b2w(ope, cast(ubyte)a[0], cast(ubyte)a[1], cast(ubyte)a[2])] };
-		enum run = q{
-			foreach (i; 0 .. x.SRC2)
-				heap_mem(registers[x.DST] + i) = heap_mem(registers[x.SRC] + i);
-		};
-		enum str = q{ format("[r%s] -> [r%s] * %s", x.SRC, x.DST, x.SRC2) };
 	}
 	
 	// reg -> stack_top
@@ -453,7 +404,6 @@ public:
 		while (pc < code.length)
 		{
 			string msg;
-			auto pc_ = pc;
 			
 			MapInstr x; x.word = code[pc++];
 			switch (x.OPE)
@@ -463,7 +413,7 @@ public:
 				assert(0);
 			}
 			
-			std.stdio.writefln("%08X : %s", pc_, msg);
+			std.stdio.writefln("%08X : %s", pc, msg);
 		}
 	}
 	
