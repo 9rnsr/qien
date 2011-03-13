@@ -233,7 +233,6 @@ Instr[] munch(T.Stm[] stms)
 				{
 					debug(munch) debugout("munchStm : MOVE[&e1, mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
-					movemem(munchExp(e1), munchExp(e2), s2);
 					if (s2 == 1)	// 式の結果としてここでDereferenceが必要なポインタを返すことはない
 					{
 						auto  src = munchExp(e1);
