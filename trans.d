@@ -92,8 +92,7 @@ private:
 		if (slotlist.length == 0)
 		{
 			// スロットが必要＝Tree作成段階にある＝型推論済み
-			assert(type.isInferred);
-			auto size = type.isFunction ? 2 : 1;
+			auto size = getTypeSize(type);
 			
 			//std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
 			
@@ -122,6 +121,14 @@ Fragment procEntryExit(Level level, Ex bodyexp)
 	auto lx = linearize(ex);
 	return new Fragment(lx, level.frame);
 }
+
+
+private size_t getTypeSize(in Ty type)
+{
+	assert(type.isInferred);
+	return type.isFunction ? 2 : 1;
+}
+
 
 /**
  * Translateによる処理の結果として生成されるIR
@@ -219,9 +226,15 @@ Ex variable(Level level, Access access)
 /**
  * 関数呼び出しのIRに変換する
  */
-Ex callFun(Ex fun, Ex[] args)
+Ex callFun(Ty tyfun, Ex fun, Ex[] args)
+in { assert(tyfun.isFunction); }
+body
 {
-	return new Ex(T.CALL(unEx(fun), array(map!unEx(args))));
+	auto size = getTypeSize(tyfun.returnType);
+	if (size >= 2)
+		return new Ex(T.MEM(T.CALL(unEx(fun), array(map!unEx(args))), size));
+	else
+		return new Ex(T.CALL(unEx(fun), array(map!unEx(args))));
 }
 
 /**

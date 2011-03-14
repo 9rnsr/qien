@@ -170,7 +170,7 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.FUN:
 			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
 		
-		case AstTag.ADD:
+		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -183,7 +183,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "+ mismatch types");
 		
-		case AstTag.SUB:
+		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -196,7 +196,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "- mismatch types");
 		
-		case AstTag.MUL:
+		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -209,7 +209,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "* mismatch types");
 		
-		case AstTag.DIV:
+		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -237,7 +237,7 @@ out(r){ assert(r.field[1] !is null); }body
 			if (!unify(tf, tenv.Arrow(ta, tr)))
 				assert(0, "type mismatch");
 			
-			xr = trans.callFun(xf, xa);
+			xr = trans.callFun(tf, xf, xa);
 			return tuple(tr, xr);
 		
 		case AstTag.ASSIGN:
