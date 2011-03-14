@@ -238,9 +238,14 @@ Instr[] munch(T.Stm[] stms)
 		T.Exp	e1 ,e2;
 		Label	l;
 		
+		T.Exp	slink;
+		
 		auto mem1 = T.MEM[&e1, &s1];
 		auto mem2 = T.MEM[&e2, &s2];
 		match(stm,
+			T.CLOS[&l],{
+				emit(Instr.OPE(I.instr_pushe(), [FP], [], []));
+			},
 			T.MOVE[mem1, mem2],{
 				debug(munch) debugout("munchStm : MOVE[mem1, mem2]");
 				debug(munch) debugout("         : stm = "), debugout(stm);
@@ -248,8 +253,13 @@ Instr[] munch(T.Stm[] stms)
 				movemem(munchExp(e1), munchExp(e2), s1);
 			},
 			T.MOVE[&e1,  mem2],{
-				if (T.VFUN[T.TEMP(FP), &l] <<= e1)
+				if (T.VFUN[&slink, &l] <<= e1)
 				{
+					if (T.CLOS(FP) == slink)
+						emit(Instr.OPE(I.instr_pushe(), [FP], [], []));
+					else
+						assert(T.TEMP(FP) == slink);
+					
 					debug(munch) debugout("munchStm : MOVE[VFUN[FP, &l], mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
 					assert(s2 == 2);
@@ -301,8 +311,8 @@ Instr[] munch(T.Stm[] stms)
 				}
 			},
 			_,{
-				debug(munch) debugout("munchStm : __error__");
-				debug(munch) debugout("         : stm = "), debugout(stm);
+				debugout("munchStm : __error__");
+				debugout("         : stm = "), debugout(stm);
 				assert(0);
 			}
 		);
