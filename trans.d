@@ -198,15 +198,8 @@ Ex immediate(RealT v)
  */
 Ex immediate(Level fn_level, bool escape)
 {
-	auto fn_label = fn_level.frame.name;
-	
-	if (escape)
-		return new Ex(
-							// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==FPをすり替える)
-			T.VFUN(T.CLOS(FP), fn_label));	// 現在のFPとクロージャ本体のラベルの組＝クロージャ値
-	else
-		return new Ex(
-			T.VFUN(T.TEMP(FP), fn_label));	// 現在のFPと関数本体のラベルの組＝関数値
+	return new Ex(
+		T.VFUN(fn_level.frame.name, escape));	// 関数本体のラベル+escapeの組＝関数値
 }
 
 /**
