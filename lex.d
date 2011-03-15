@@ -256,7 +256,9 @@ public:
 			case '*':	line.popFront(), token.tag = Token.MUL;		break;
 			case '/':	line.popFront(), token.tag = Token.DIV;		break;
 			default:
-				if (tryParseNum() || tryParseStr() || tryParseIdent())
+				if (tryParseNum(this)
+				 || tryParseStr(this)
+				 || tryParseIdt(this))
 					break;
 				error("parse error");
 			}
@@ -284,183 +286,266 @@ private:
 		
 		throw new ToknizeException(FilePos(ln, col), msg);
 	}
-	
-	bool tryParseNum()
-	in{ assert(!line.empty); }
-	body
-	{
-		alias line result;
-		auto input = result;
-		
-		auto c = input.front;
-		if( !isdigit(c) )
-			return false;
-		
-		long i = 0;		//longがリテラルの制限
-		
-		if (c == '0')
-		{
-			c = input.nextFront();
-			
-			debug(Num) writefln("0? top=%02x %s", input.front, input.front);
-			if (c == 'x' || c == 'X')								//16進数(0x??... | 0X??...)
-			{
-				if (!isxdigit(c = tolower(input.nextFront())))
-					error("invalid hex literal.");
-				do{
-					i = (i * 16) + (isalpha(c) ? c-'a'+10 : c-'0');
-					debug(Num) writefln("x=%X, %s", i, c);
-				}while (isxdigit(c = tolower(input.nextFront())))
-			}
-			else if (c == 'b' || c == 'B')							//2進数(0b??... | 0B??...)
-			{
-				if (!isbdigit(c = input.nextFront()))
-					error("invalid binary literal.");
-				do{
-					i = (i * 2) + (c - '0');
-					debug(Num) writefln("b=%b", i);
-				}while (isbdigit(c = input.nextFront()))
-			}
-			else if (c == 'o' || isodigit(c))						//8進数(0o??... | 0??...)
-			{
-				if (c == 'o' && !isodigit(c = input.nextFront()))
-					error("invalid octet literal.");
-				do{
-					i = (i * 8) + (c - '0');
-					debug(Num) writefln("o=%o", i);
-				}while (isodigit(c = input.nextFront()))
-			}
-			else	//整数の0
-			{
-				c = '0';
-				input = result;	// revert
-				debug(Num) writefln("0int, top='%s'(%02x)", input.front, input.front);
-				goto scan_integer;
-			}
-		}
-		else
-		{
-		  scan_integer:
-			//整数部をlexing
-			debug(Num) writefln("top='%s'(%02x)", input.front, input.front);
-			while (!input.empty)
-			{
-				if (!isdigit(c = input.front)) break;
-				i = (i * 10) + (c - '0');
-			//	debug(Num) writefln("i=%d top='%s'(%02x), pos=%s", i, input.top, input.top, input.position);
-				input.popFront();
-			}
-			result = input;	//input.commit();
-			
-			input.skip_ws();
-			if (!input.empty && input.front == '.')		//method呼び出し、または小数部
-			{
-				debug(Num) writefln(".");
-				input.popFront();
-				input.skip_ws();
-				
-				debug(Num) writefln("top=%s", input.front);
-				if (!input.empty && isdigit(c = input.front))
-				{
-					double f = i, r = 0.1;
-					do{
-						f += r * (c - '0');
-						r /= 10.0;
-						debug(Num) writefln("f=%s", f);
-					}while (isdigit(c = input.nextFront()))
-					result = input;	//input.commit();
-					
-					token.tag = Token.REAL;
-					token.r   = f;//RealT(f);
-					return true;
-				}
-			}
-		}
-		result = input;	//input.commit();
-		
-		token.tag = Token.INT;
-		token.i   = i;//IntT(i);
-		return true;
-	}
+}
 
-	bool tryParseStr()
-	in{ assert(!line.empty); }
-	body
+version(unittest)
+{
+	struct MockToknizer
 	{
-		static dchar esc_char(dchar c) pure nothrow
+		Token token;
+		const(char)[] line;
+		
+		void error(string msg)
 		{
-			switch (c)
-			{
-			case 'n':	return '\n';
-			case 't':	return '\t';
-			default:	return c;
-			}
+			throw new Exception(msg);
 		}
+	}
+}
+
+bool tryParseNum(Context)(ref Context context)
+in{ assert(!context.line.empty); }
+body
+{
+	auto input = context.line;
+	
+	auto c = input.front;
+	if( !isdigit(c) )
+		return false;
+	
+	long i = 0;		//longがリテラルの制限
+	
+	if (c == '0')
+	{
+		c = input.nextFront();
 		
-		alias line result;
-		auto input = line;
-		
-		if (input.front != '\"')
-			return false;
-		input.popFront();
-		
-		auto buf = appender!string();
-		bool esc = false;
+		debug(Num) writefln("0? top=%02x %s", input.front, input.front);
+		if (c == 'x' || c == 'X')								//16進数(0x??... | 0X??...)
+		{
+			if (!isxdigit(c = tolower(input.nextFront())))
+				context.error("invalid hex literal.");
+			do{
+				i = (i * 16) + (isalpha(c) ? c-'a'+10 : c-'0');
+				debug(Num) writefln("x=%X, %s", i, c);
+			}while (isxdigit(c = tolower(input.nextFront())))
+		}
+		else if (c == 'b' || c == 'B')							//2進数(0b??... | 0B??...)
+		{
+			if (!isbdigit(c = input.nextFront()))
+				context.error("invalid binary literal.");
+			do{
+				i = (i * 2) + (c - '0');
+				debug(Num) writefln("b=%b", i);
+			}while (isbdigit(c = input.nextFront()))
+		}
+		else if (c == 'o' || isodigit(c))						//8進数(0o??... | 0??...)
+		{
+			if (c == 'o' && !isodigit(c = input.nextFront()))
+				context.error("invalid octet literal.");
+			do{
+				i = (i * 8) + (c - '0');
+				debug(Num) writefln("o=%o", i);
+			}while (isodigit(c = input.nextFront()))
+		}
+		else	//整数の0
+		{
+			c = '0';
+			input = context.line;	// revert
+			debug(Num) writefln("0int, top='%s'(%02x)", input.front, input.front);
+			goto scan_integer;
+		}
+	}
+	else
+	{
+	  scan_integer:
+		//整数部をlexing
+		debug(Num) writefln("top='%s'(%02x)", input.front, input.front);
 		while (!input.empty)
 		{
-			auto c = input.front;
+			if (!isdigit(c = input.front)) break;
+			i = (i * 10) + (c - '0');
+		//	debug(Num) writefln("i=%d top='%s'(%02x), pos=%s", i, input.top, input.top, input.position);
 			input.popFront();
-			if (c == '\"')
+		}
+		context.line = input;	//input.commit();
+		
+		input.skip_ws();
+		if (!input.empty && input.front == '.')		//method呼び出し、または小数部
+		{
+			debug(Num) writefln(".");
+			input.popFront();
+			input.skip_ws();
+			
+			debug(Num) writefln("top=%s", input.front);
+			if (!input.empty && isdigit(c = input.front))
 			{
-				result = input;	//input.commit();
+				double f = i, r = 0.1;
+				do{
+					f += r * (c - '0');
+					r /= 10.0;
+					debug(Num) writefln("f=%s", f);
+				}while (isdigit(c = input.nextFront()))
+				context.line = input;	//input.commit();
 				
-				token.tag = Token.STR;
-				token.s   = buf.data;//StrT(buf.data);
+				context.token.tag = Token.REAL;
+				context.token.r   = f;//RealT(f);
 				return true;
 			}
-			else if (c == '\\')
-			{
-				esc = true;
-				continue;
-			}
-			
-			if (esc)
-				c = esc_char(c), esc = false;
-			buf.put(c);
 		}
-		return false;
+	}
+	context.line = input;	//input.commit();
+	
+	context.token.tag = Token.INT;
+	context.token.i   = i;//IntT(i);
+	return true;
+}
+unittest
+{
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+	
+	bool test(const(char)[] line, double expect)
+	{
+		auto t = MockToknizer(Token(), line);
+		try
+		{
+			if (tryParseNum(t))
+				if (t.token.tag == Token.INT)
+					return t.token.i == expect;
+				else
+					return t.token.r == expect;
+			else
+				return false;
+		}
+		catch (Throwable e)
+			return false;
 	}
 	
-	bool tryParseIdent()
-	in{ assert(!line.empty); }
-	body
+	assert(test("0", 0));
+	assert(test("1", 1));
+	assert(test("1024", 1024));
+	assert(test("0.0", 0.0));
+	assert(test("1.0", 1.0));
+	assert(test("3.1415", 3.1415));
+}
+
+bool tryParseStr(Context)(ref Context context)
+in{ assert(!context.line.empty); }
+body
+{
+	static dchar esc_char(dchar c) pure nothrow
 	{
-		alias line result;
-		auto input = line;
-		
-		auto c = input.front;
-		if (c != '_' && !isalpha(c))
-			return false;
-		
-		auto buf = appender!string;
-		do{
-			//writefln("lexIdent, c=%s(%x), top=%s(%x)", c,c, input.top,input.top);
-			buf.put(c);
-			input.popFront();
-		}while (!input.empty && (c = input.front, (isalnum(c) || c=='_')))
-		//writefln("lexIdent, c=%s(%x), top=%s(%x)", c,c, input.top,input.top);
-		result = input;	//input.commit();
-		
-		auto str = buf.data;
-		if (auto tag = str in reservedSymbols)
+		switch (c)
 		{
-			token.tag = *tag;
+		case 'n':	return '\n';
+		case 't':	return '\t';
+		default:	return c;
 		}
-		else
-		{
-			token.tag = Token.IDENT;
-			token.s   = str;//StrT(str);
-		}
-		return true;
 	}
+	
+	auto input = context.line;
+	
+	if (input.front != '\"')
+		return false;
+	input.popFront();
+	
+	auto buf = appender!string();
+	bool esc = false;
+	while (!input.empty)
+	{
+		auto c = input.front;
+		input.popFront();
+		if (c == '\"')
+		{
+			context.line = input;	//input.commit();
+			
+			context.token.tag = Token.STR;
+			context.token.s   = buf.data;//StrT(buf.data);
+			return true;
+		}
+		else if (c == '\\')
+		{
+			esc = true;
+			continue;
+		}
+		
+		if (esc)
+			c = esc_char(c), esc = false;
+		buf.put(c);
+	}
+	return false;
+}
+unittest
+{
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+	
+	bool test(const(char)[] line, string expect=null)
+	{
+		auto t = MockToknizer(Token(), line);
+		try
+			return tryParseStr(t) && (t.token.s == expect);
+		catch (Throwable e)
+			return false;
+	}
+	
+	assert( test(`""`,			""));
+	assert( test(`"string"`,	"string"));
+	assert( test(`"test\t\n"`,	"test\t\n"));
+	assert(!test(`"test`));
+	assert(!test(`123`));
+	assert(!test(`ident`));
+}
+
+bool tryParseIdt(Context)(ref Context context)
+in{ assert(!context.line.empty); }
+body
+{
+	auto input = context.line;
+	
+	auto c = input.front;
+	if (c != '_' && !isalpha(c))
+		return false;
+	
+	auto buf = appender!string;
+	do{
+		//writefln("lexIdent, c=%s(%x), top=%s(%x)", c,c, input.top,input.top);
+		buf.put(c);
+		input.popFront();
+	}while (!input.empty && (c = input.front, (isalnum(c) || c=='_')))
+	//writefln("lexIdent, c=%s(%x), top=%s(%x)", c,c, input.top,input.top);
+	context.line = input;	//input.commit();
+	
+	auto str = buf.data;
+	if (auto tag = str in reservedSymbols)
+	{
+		context.token.tag = *tag;
+	}
+	else
+	{
+		context.token.tag = Token.IDENT;
+		context.token.s   = str;//StrT(str);
+	}
+	return true;
+}
+unittest
+{
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+	
+	bool test(const(char)[] line, string expect=null)
+	{
+		auto t = MockToknizer(Token(), line);
+		try
+			return tryParseIdt(t) && (t.token.s == expect);
+		catch (Throwable e)
+			return false;
+	}
+	
+	assert( test("_name",	"_name"));
+	assert( test("name",	"name"));
+	assert( test("Name",	"Name"));
+	assert( test("name012",	"name012"));
+	assert(!test(`"name"`));
+	assert(!test("0name"));
+	assert(!test("~name"));
 }
