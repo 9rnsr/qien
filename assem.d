@@ -74,7 +74,31 @@ Instr[] munch(T.Stm[] stms)
 		gen(t);
 		return t;
 	}
-
+	void movemem(Temp psrc, Temp pdst, size_t size)
+	{
+		assert(size >= 1);
+		Temp ofs1;
+		if (size >= 2)
+		{
+			ofs1 = newTemp();
+			emit(Instr.OPE(I.instr_imm(1, ofs1.num), [], [ofs1], []));
+			// オリジナルのpsrc/pdstレジスタを書き換えないよう新規確保する
+			psrc = result((Temp r){ emit(Instr.OPE(I.instr_mov(psrc.num, r.num), [psrc], [r], [])); });
+			pdst = result((Temp r){ emit(Instr.OPE(I.instr_mov(pdst.num, r.num), [pdst], [r], [])); });
+		}
+		
+		foreach (ofs; 0 .. size)
+		{
+			if (ofs >= 1)
+			{
+				emit(Instr.OPE(I.instr_add(psrc.num, ofs1.num, psrc.num), [psrc,ofs1], [psrc], []));
+				emit(Instr.OPE(I.instr_add(pdst.num, ofs1.num, pdst.num), [pdst,ofs1], [pdst], []));
+			}
+			emit(Instr.OPE(I.instr_get(psrc.num, temp.num), [psrc], [temp], []));
+			emit(Instr.OPE(I.instr_set(temp.num, pdst.num), [temp,pdst], []));
+		}
+	}
+	
 	Temp munchExp(T.Exp exp)
 	{
 		Temp	t;
@@ -178,10 +202,19 @@ Instr[] munch(T.Stm[] stms)
 						}
 						else
 						{
-							assert(size == 1);			// 現状、CALLのみがmultiword rvalueを生成する
 							auto t = munchExp(e);
-							emit(Instr.OPE(I.instr_get(t.num, t.num), [t], [t], []));
-							emit(Instr.OPE(I.instr_pushs(t.num), [t], [], []));
+							if (size == 1)
+							{
+								emit(Instr.OPE(I.instr_get(t.num, t.num), [t], [t], []));
+								emit(Instr.OPE(I.instr_pushs(t.num), [t], [], []));
+							}
+							else
+							{
+								auto pdst = result((Temp r){ emit(Instr.OPE(I.instr_mov(SP.num, r.num), [SP], [r], [])); });
+								emit(Instr.OPE(I.instr_imm(size, temp.num), [], [temp], []));
+								emit(Instr.OPE(I.instr_add(SP.num, temp.num, SP.num), [SP,temp], [SP], []));
+								movemem(t, pdst, size);
+							}
 						}
 					}
 					else
@@ -219,31 +252,6 @@ Instr[] munch(T.Stm[] stms)
 	}
 	Instr[] munchStm(T.Stm stm)
 	{
-		void movemem(Temp psrc, Temp pdst, size_t size)
-		{
-			assert(size >= 1);
-			Temp ofs1;
-			if (size >= 2)
-			{
-				ofs1 = newTemp();
-				emit(Instr.OPE(I.instr_imm(1, ofs1.num), [], [ofs1], []));
-				// オリジナルのpsrc/pdstレジスタを書き換えないよう新規確保する
-				psrc = result((Temp r){ emit(Instr.OPE(I.instr_mov(psrc.num, r.num), [psrc], [r], [])); });
-				pdst = result((Temp r){ emit(Instr.OPE(I.instr_mov(pdst.num, r.num), [pdst], [r], [])); });
-			}
-			
-			foreach (ofs; 0 .. size)
-			{
-				if (ofs >= 1)
-				{
-					emit(Instr.OPE(I.instr_add(psrc.num, ofs1.num, psrc.num), [psrc,ofs1], [psrc], []));
-					emit(Instr.OPE(I.instr_add(pdst.num, ofs1.num, pdst.num), [pdst,ofs1], [pdst], []));
-				}
-				emit(Instr.OPE(I.instr_get(psrc.num, temp.num), [psrc], [temp], []));
-				emit(Instr.OPE(I.instr_set(temp.num, pdst.num), [temp,pdst], []));
-			}
-		}
-		
 		auto instrLen = instrlist.length;
 		
 		size_t	s1, s2;
