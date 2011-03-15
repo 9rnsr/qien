@@ -30,13 +30,13 @@ int main(string[] args)
 	return 0;
 }
 
-void run_program(string fname)
+ulong run_program(string fname)
 {
 	auto ast = parseProg(fname);
 	auto frg = transProg(ast);
 	auto prg = munchProg(frg);
 	auto m = new Machine(prg);
-	m.run();
+	return m.run();
 }
 
 int usage()
@@ -66,16 +66,18 @@ int run_test(string dir = "test")
 		if (fname.getExt == "qi")
 		{
 			auto outfile = resdir ~ sep ~ fname.addExt("log");
-			writefln("[] %s (%s)", fname, outfile);
+			writef("[] %s (%s) -> ", fname, outfile);
 			
 			auto old_stdout = stdout;
 			stdout = File(outfile, "w+");
 			scope(exit) stdout = old_stdout;
 			
 			try{
-				run_program(`test\` ~ fname);
+				auto rv = run_program(`test\` ~ fname);
+				old_stdout.writefln("%s(%s)", rv, cast(long)rv);
 			}catch(Throwable e){
 				writefln("%s", e);
+				old_stdout.writefln("failed : %s", e);
 			}
 		}
 	}

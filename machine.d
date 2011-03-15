@@ -435,7 +435,7 @@ public:
 		});
 	}
 	/// 
-	void run()
+	ulong run()
 	{
 		print();
 		std.stdio.writefln("--");
@@ -477,6 +477,8 @@ public:
 		
 		debug(machine) std.stdio.writefln("RV:r%s = %s(%s)",
 							RV.num, registers[RV.num], cast(long)registers[RV.num]);
+		
+		return registers[RV.num];
 	}
 }
 
