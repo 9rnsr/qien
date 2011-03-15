@@ -77,7 +77,7 @@ Instr[] munch(T.Stm[] stms)
 	{
 		Temp	t;
 		Label	l;
-		T.Exp	e, e1, e2, disp;
+		T.Exp	e, e1, e2, disp, base;
 		T.Exp[]	el;
 		size_t	size;
 		long	n;
@@ -132,7 +132,7 @@ Instr[] munch(T.Stm[] stms)
 				});
 			},
 
-			T.CALL[T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], &size], &el],{
+			T.CALL[T.MEM[&base, &size], &el],{
 				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
 				debug(munch) writefln("         : exp = %s", exp);
 				
@@ -143,20 +143,15 @@ Instr[] munch(T.Stm[] stms)
 				auto tRV = newTemp();
 				emit(Instr.OPE(I.instr_mov(RV.num, tRV.num), [RV], [tRV], []));
 				
-				auto d0 = munchExp(disp);
-				auto d1 = munchExp(T.BIN(T.BinOp.ADD, T.TEMP(d0), T.VINT(1)));
+				auto p0 = munchExp(base);
+				auto label = result((Temp r){ emit(Instr.OPE(I.instr_get(p0.num, r.num), [p0], [r], [])); });
 				
-				auto label = result((Temp r){
-					emit(Instr.OPE(I.instr_add(FP.num, d0.num, temp.num), [FP,d0], [temp], []));
-					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
-				});
-				auto slink = result((Temp r){
-					emit(Instr.OPE(I.instr_add(FP.num, d1.num, temp.num), [FP,d0], [temp], []));
-					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));
-				});
-				auto fsize = result((Temp r){
-					emit(Instr.OPE(I.instr_imm(0xBEEF, r.num), [], [r], []));
-				});
+				emit(Instr.OPE(I.instr_imm(1, temp.num), [], [temp], []));
+				emit(Instr.OPE(I.instr_add(p0.num, temp.num, p0.num), [p0,temp], [p0], []));
+				
+				auto slink = result((Temp r){ emit(Instr.OPE(I.instr_get(p0.num, r.num), [p0], [r], [])); });
+				
+				auto fsize = result((Temp r){ emit(Instr.OPE(I.instr_imm(0xBEEF, r.num), [], [r], [])); });
 				emit(Instr.OPE(I.instr_pushs(slink.num), [SP,slink], [], []));
 				emit(Instr.OPE(I.instr_pushs(fsize.num), [SP,fsize], [], []));
 				
@@ -204,10 +199,11 @@ Instr[] munch(T.Stm[] stms)
 					emit(Instr.OPE(I.instr_sub(SP.num, temp.num, SP.num), [SP,temp], [SP], []));
 				}
 				
-				//return result((Temp r){ emit(Instr.OPE(I.instr_mov(RV.num, r.num), [RV], [r], [])); });
 				return RV;
 			},
 			T.CALL[&e, &el],{
+			//	writef("munchExp : _ = %s", exp);
+				debugout("munchExp : _ = "), debugout(exp);
 				assert(0, "IR error");
 				return Temp.init;
 			},
