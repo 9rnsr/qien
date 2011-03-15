@@ -167,7 +167,7 @@ template DefInstr_()
 	{
 		enum gen = q{ [b2w(ope, cast(ubyte)a[0], 0,0)] };
 		enum run = q{
-		//	std.stdio.writefln("> %s", __LINE__);
+		//	debug(machine) std.stdio.writefln("> %s", __LINE__);
 		//	debug(machine) std.stdio.writefln("> map %s -> %08X",
 		//			registers[x.SRC], cast(size_t)label_to_pc[cast(size_t)registers[x.SRC]]);
 			stack[cp] = pc;
@@ -203,6 +203,7 @@ template DefInstr_()
 			stack.put(0xBEEF);	// ret pc (filled by call)
 			stack.put(ep);		// ret ep
 			debug(machine) printStack();
+			debug(machine) printRegs();
 		};
 		enum str = q{ format("") };
 	}
@@ -525,14 +526,21 @@ public:
 	}
 }
 
+version(unittest)
+{
+	static this()
+	{
+		frame.initialize();		// CP,FP,RV,SP
+	}
+}
 unittest
 {
-	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
-	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
-	
 	alias Instruction I;
 	
 	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+		
 		auto m = new Machine();
 		m.code ~= I.instr_nop();
 		m.code ~= I.instr_hlt();
@@ -542,86 +550,111 @@ unittest
 	void instr_test3(string instr)(ulong lhs, ulong rhs, ulong expect)
 	{
 		auto m = new Machine();
-		m.code ~= I.instr_imm(lhs, 0);
-		m.code ~= I.instr_imm(rhs, 1);
-		mixin("m.code ~= I.instr_"~instr~"(0, 1, 2);");
-	//	std.stdio.writefln("code = %(%02X %)", cast(ubyte[])m.code);
+		m.code ~= I.instr_imm(lhs, 10);
+		m.code ~= I.instr_imm(rhs, 11);
+		mixin("m.code ~= I.instr_"~instr~"(10, 11, 12);");
+	//	std.stdio.writefln("code = %(%02X %)", cast(ubyte[])m.code);;
 		m.run();
-		assert(m.registers[2] == expect, instr);
+		assert(m.registers[12] == expect, instr);
 	}
 	instr_test3!"add"(10, 20, 30);
 	instr_test3!"sub"(20, 10, 10);
 	instr_test3!"mul"(10,  2, 20);
 	instr_test3!"div"(10,  2,  5);
 	
-	{	auto m = new Machine();
-		m.code ~= I.instr_imm(100, 0);
-		m.code ~= I.instr_imm(999, 1);
-		m.code ~= I.instr_mov(0, 1);
+	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+		
+		auto m = new Machine();
+		m.code ~= I.instr_imm(100, 10);
+		m.code ~= I.instr_imm(999, 11);
+		m.code ~= I.instr_mov(10, 11);
 		m.run();
-		assert(m.registers[1] == 100);
+		assert(m.registers[11] == 100);
 	}
-	{	auto m = new Machine();
-		m.code ~= I.instr_imm(100, 0);
-		m.code ~= I.instr_pushs(0);
-		m.code ~= I.instr_pop(1);
+	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+		
+		auto m = new Machine();
+		m.code ~= I.instr_imm(100, 10);
+		m.code ~= I.instr_pushs(10);
+		m.code ~= I.instr_pop(11);
 		m.run();
-		assert(m.registers[1] == 100);
+		assert(m.registers[11] == 100);
 	}
-	{	auto m = new Machine();
-		m.code ~= I.instr_imm(4, 0);		// r0 <- fn addr(4word)
-		m.code ~= I.instr_call(0);			// call
+	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+		
+		auto m = new Machine();
+		m.code ~= I.instr_pushc();
+		m.code ~= I.instr_pushs(FP.num);	// pushs ep (slink)
+		m.code ~= I.instr_imm(0x2, 10);		
+		m.code ~= I.instr_pushs(10);		// pushs #2 (frameSize, local variables count == 0)
+		m.code ~= I.instr_imm(0xA, 10);		// fn label(#xA) -> r10
+		m.code ~= I.instr_call(10);			// call
 		m.code ~= I.instr_hlt();			// hlt
-	 // 4word <- imm(2) + call(1) + hlt(1)
-		m.code ~= I.instr_imm(10, 1);		// #10 -> r1
-		m.code ~= I.instr_imm(20, 2);		// @20 -> r2
-		m.code ~= I.instr_mul(1, 2, 3);		// r1 * r2 -> r3
+		
+		m.label_to_pc[0xA] = m.code.length;	// add mapping
+		
+		m.code ~= I.instr_imm(0x0A, 11);	// #10 -> r11
+		m.code ~= I.instr_imm(0x14, 12);	// @20 -> r12
+		m.code ~= I.instr_mul(11, 12, 13);	// r11 * r12 -> r13
 		m.code ~= I.instr_ret();			// ret
 		m.run();
-		assert(m.registers[0] == 4);
-		assert(m.registers[1] == 10);
-		assert(m.registers[2] == 20);
-		assert(m.registers[3] == 200);
+		assert(m.registers[11] == 10);
+		assert(m.registers[12] == 20);
+		assert(m.registers[13] == 200);
 	}
 
 	// hep allocation and pointer access
-	{	auto m = new Machine();
-		m.code ~= I.instr_imm(10, 0);		// length = 10 -> r0
-		m.code ~= I.instr_alloc(0, 1);		// [0 .. r0].ptr -> r1
+	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
 		
-		m.code ~= I.instr_imm(10, 0);		// #10 -> r0
-		m.code ~= I.instr_set(0, 1);		// r0 -> [r1]
-		m.code ~= I.instr_get(1, 2);		// [r1] -> r2	result -> r2
+		auto m = new Machine();
+		m.code ~= I.instr_imm(0xA, 10);		// length = 10 -> r10
+		m.code ~= I.instr_alloc(10, 11);	// [0 .. r10].ptr -> r11
 		
-		m.code ~= I.instr_imm(1, 0);		// ptr offset = 1
-		m.code ~= I.instr_add(0, 1, 1);		// r0(+1) + r1(ptr) _> r1(ptr+1)
+		m.code ~= I.instr_imm(0xA, 10);		// #10 -> r10
+		m.code ~= I.instr_set(10, 11);		// r10 -> [r11]
+		m.code ~= I.instr_get(11, 12);		// [r11] -> r12	result -> r12
 		
-		m.code ~= I.instr_imm(20, 0);		// #20 -> r0
-		m.code ~= I.instr_set(0, 1);		// r0 -> [r1]
-		m.code ~= I.instr_get(1, 3);		// [r1] -> r3	result -> r3
+		m.code ~= I.instr_imm(0x1, 10);		// ptr offset = 1
+		m.code ~= I.instr_add(10, 11, 11);	// r10(+1) + r11(ptr) _> r11(ptr+1)
+		
+		m.code ~= I.instr_imm(0x14, 10);	// #20 -> r10
+		m.code ~= I.instr_set(10, 11);		// r10 -> [r11]
+		m.code ~= I.instr_get(11, 13);		// [r11] -> r13	result -> r13
 		m.run();
-		auto ptr = m.registers[1];
+		auto ptr = m.registers[11];
 		assert((ptr & 0xFFFF_FFFF) == 1);	// ptr offset == 1
 		ptr -= 1;
-		assert(m.registers[2] == 10);
-		assert(m.registers[3] == 20);
+		assert(m.registers[12] == 10);
+		assert(m.registers[13] == 20);
 		assert(m.heap_mem(ptr+0) == 10);
 		assert(m.heap_mem(ptr+1) == 20);
 	}
 
 	// stack underflow
-	{	auto m = new Machine();
-		m.code ~= I.instr_imm(1, 0), m.code ~= I.instr_pop(1);	// #1 -> r0, [--sp] -> r1
-		m.code ~= I.instr_imm(2, 0), m.code ~= I.instr_pop(1);	// #2 -> r0, [--sp] -> r1
-		m.code ~= I.instr_imm(3, 0), m.code ~= I.instr_pop(1);	// #3 -> r0, [--sp] -> r1
-		m.code ~= I.instr_imm(4, 0), m.code ~= I.instr_pop(1);	// #4 -> r0, [--sp] -> r1
-		m.code ~= I.instr_imm(5, 0), m.code ~= I.instr_pop(1);	// #5 -> r0,([--sp] -> r1)
-		m.code ~= I.instr_imm(6, 0);
+	{
+		scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+		scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+		
+		auto m = new Machine();
+		m.code ~= I.instr_imm(0x1, 10), m.code ~= I.instr_pop(11);	// #1 -> r10, [--sp] -> r11
+		m.code ~= I.instr_imm(0x2, 10), m.code ~= I.instr_pop(11);	// #2 -> r10, [--sp] -> r11
+		m.code ~= I.instr_imm(0x3, 10), m.code ~= I.instr_pop(11);	// #3 -> r10, [--sp] -> r11
+		m.code ~= I.instr_imm(0x4, 10), m.code ~= I.instr_pop(11);	// #4 -> r10, [--sp] -> r11
+		m.code ~= I.instr_imm(0x5, 10), m.code ~= I.instr_pop(11);	// #5 -> r10,([--sp] -> r11)
+		m.code ~= I.instr_imm(0x6, 10);
 		bool catched = false;
 		try{
 			m.run();
 		}catch(Exception e){	// RuntimeException
-			assert(m.registers[0] == 5);
+			assert(m.registers[10] == 5);
 			catched = true;
 		}
 		assert(catched, format("catched = %s", catched));
