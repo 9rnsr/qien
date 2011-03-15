@@ -184,13 +184,13 @@ template DefInstr_()
 	{
 		enum gen = q{ [b2w(ope, 0,0,0)] };
 		enum run = q{
-			debug(machine) printRegs();
 			ep = stack[cp+1];
 			pc = cast(size_t)stack[cp+0];
 			sp = cp;
 			if (ep != 0)	//todo
 				cp = cp - (heap_mem(ep+1) + ContSize);
 			debug(machine) printStack();
+			debug(machine) printRegs();
 		};
 		enum str = q{ format("") };
 	}
@@ -211,8 +211,45 @@ template DefInstr_()
 	{
 		enum gen = q{ [b2w(ope, 0,0,0)] };
 		enum run = q{
-			assert(0);
+			// RVはcaller側からcallee側に直接渡る唯一のpointer
+			// (Arguments are always passed through environment)
+			auto rv = registers[RV.num];
+			
+			//epが指すenvもコピーしないと。
+			auto pep = &registers[FP.num];
+			while (true)
+			{
+				auto ep = *pep;
+				if (!is_stack_pointing(ep))
+					break;
+				
+				auto env_top = &heap_mem(ep);
+				auto env_siz = cast(size_t) *(env_top + 1);
+				auto env     = env_top[0 .. env_siz];
+				
+				auto heap_top = heap_alloc(env_siz);
+				auto heap_env = (&heap_mem(heap_top))[0 .. env_siz];
+				std.stdio.writefln(">>> env = %(%04X %)", env);
+				
+				heap_env[] = env[];
+				
+				std.stdio.writefln(">>> stack env = [%s .. %s], rv = %s", ep, ep + env_siz, rv);
+				if (ep <= rv && rv < (ep + env_siz))
+					registers[RV.num] = ((heap_top >> 32) << 32) + (rv - ep);
+				
+				// コピーしたenvを指しているcontを書き換える
+				*(env_top + env_siz + 1) = heap_top;
+				
+				*pep = heap_top;	// slinkの書き換え
+				
+				if (env[0] == 0)	// specifies outermost frame
+					break;
+				
+				pep = &heap_env[0];
+			}
+			
 			debug(machine) printStack();
+			debug(machine) printRegs();
 		};
 		enum str = q{ format("") };
 	}
@@ -314,6 +351,8 @@ private:
 	@property ulong cp() { return registers[CP.num]; }	// todo
 	@property ulong ep() { return registers[FP.num]; }	// todo
 	@property ulong sp() { return registers[SP.num] = stack.length; }
+
+	@property ulong rv() { return registers[RV.num]; }
 	
 	@property void cp(ulong n){ registers[CP.num] = n; }
 	@property void ep(ulong n){ registers[FP.num] = n; }
@@ -344,6 +383,10 @@ private:
 			return stack[heapofs];
 		else
 			return heap[heapidx][heapofs];
+	}
+	bool is_stack_pointing(ulong pointer)
+	{
+		return cast(uint)(pointer >> 32) == 0;
 	}
 
 	/// 
@@ -424,7 +467,7 @@ public:
 				debug(machine)
 				{
 					auto pc_ = pc;
-					std.stdio.writefln("%08X : %-6s%-32s[SRC] = %s, [SRC2] = %s, [DST] = %s",
+					std.stdio.writefln("%08X : %-6s%-32s[SRC] = #x%X, [SRC2] = #x%X, [DST] = #x%X",
 						instr_pc, "$name", ${ mixin("DefInstr.$name.str") },
 						registers[x.SRC], registers[x.SRC2], registers[x.DST]);
 					pc = pc_;
@@ -441,11 +484,11 @@ public:
 		
 		void printStack()
 		{
-			debug(machine) std.stdio.writefln("%49sstack = %s", "", stack);
+			debug(machine) std.stdio.writefln("   stack = %s", stack);
 		}
 		void printRegs()
 		{
-			debug(machine) std.stdio.writefln("%49s regs = ep:%08X, cp:%08X, sp:%08X", "", ep, cp, sp);
+			debug(machine) std.stdio.writefln("    regs = ep:%08X, cp:%08X, sp:%08X, rv:%08X", ep, cp, sp, rv);
 		}
 		
 		pc = 0;
@@ -456,8 +499,8 @@ public:
 		stack.put(0);			// outermost env->up  ( = void)
 		stack.put(0xBEEF);		// outermost env->size(placholder)
 		
-		debug(machine) printRegs();
 		debug(machine) printStack();
+		debug(machine) printRegs();
 		
 		heap_alloc(0);
 		assert(heap.length == 1);	// stack == idx0を確保

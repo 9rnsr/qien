@@ -165,17 +165,27 @@ Instr[] munch(T.Stm[] stms)
 				{
 					if (T.MEM[&e, &size] <<= arg)
 					{
-						rvalue_size += size;
-						// allocate memory for temporary argument on stack
-						//sp + size -> sp
-						emit(Instr.OPE(I.instr_mov(SP.num, RV.num), [SP], [RV], []));
-						emit(Instr.OPE(I.instr_imm(size, temp.num), [], [temp], []));
-						emit(Instr.OPE(I.instr_add(SP.num, temp.num, SP.num), [SP,temp], [SP], []));
 						
-						assert(T.CALL[$] <<= e);	// 現状、CALLのみがmultiword rvalueを生成する
-						auto t = munchExp(e);
-						assert(t is RV);
-					//	emit(Instr.OPE(I.instr_pushs(t.num), [SP, t], [], []));
+						if (T.CALL[$] <<= e)
+						{
+							rvalue_size += size;
+							// allocate memory for temporary argument on stack
+							//sp + size -> sp
+							emit(Instr.OPE(I.instr_mov(SP.num, RV.num), [SP], [RV], []));
+							emit(Instr.OPE(I.instr_imm(size, temp.num), [], [temp], []));
+							emit(Instr.OPE(I.instr_add(SP.num, temp.num, SP.num), [SP,temp], [SP], []));
+							
+							auto t = munchExp(e);
+							assert(t is RV);
+						//	emit(Instr.OPE(I.instr_pushs(t.num), [SP, t], [], []));
+						}
+						else
+						{
+							assert(size == 1);			// 現状、CALLのみがmultiword rvalueを生成する
+							auto t = munchExp(e);
+							emit(Instr.OPE(I.instr_get(t.num, t.num), [t], [t], []));
+							emit(Instr.OPE(I.instr_pushs(t.num), [t], [], []));
+						}
 					}
 					else
 					{
@@ -219,6 +229,9 @@ Instr[] munch(T.Stm[] stms)
 			{
 				ofs1 = newTemp();
 				emit(Instr.OPE(I.instr_imm(1, ofs1.num), [], [ofs1], []));
+				// オリジナルのpsrc/pdstレジスタを書き換えないよう新規確保する
+				psrc = result((Temp r){ emit(Instr.OPE(I.instr_mov(psrc.num, r.num), [psrc], [r], [])); });
+				pdst = result((Temp r){ emit(Instr.OPE(I.instr_mov(pdst.num, r.num), [pdst], [r], [])); });
 			}
 			
 			foreach (ofs; 0 .. size)
@@ -247,7 +260,18 @@ Instr[] munch(T.Stm[] stms)
 				debug(munch) debugout("munchStm : MOVE[mem1, mem2]");
 				debug(munch) debugout("         : stm = "), debugout(stm);
 				assert(s1 == s2);
-				movemem(munchExp(e1), munchExp(e2), s1);
+				if (T.CALL[$] <<= e1)
+				{
+					auto pdst = munchExp(e2);
+					emit(Instr.OPE(I.instr_mov(pdst.num, RV.num), [pdst], [RV], []));
+					auto psrc = munchExp(e1);
+				}
+				else
+				{
+					auto psrc = munchExp(e1);
+					auto pdst = munchExp(e2);
+					movemem(psrc, pdst, s1);
+				}
 			},
 			T.MOVE[&e1,  mem2],{
 				if (T.VFUN[&l, &esc] <<= e1)
