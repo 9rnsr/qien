@@ -316,7 +316,10 @@ body
 	
 	if (c == '0')
 	{
-		c = input.nextFront();
+		input.popFront();
+		if (input.empty)
+			goto Zero;
+		c = input.front;
 		
 		debug(Num) writefln("0? top=%02x %s", input.front, input.front);
 		if (c == 'x' || c == 'X')								//16進数(0x??... | 0X??...)
@@ -348,6 +351,7 @@ body
 		}
 		else	//整数の0
 		{
+		  Zero:
 			c = '0';
 			input = context.line;	// revert
 			debug(Num) writefln("0int, top='%s'(%02x)", input.front, input.front);
@@ -363,7 +367,7 @@ body
 		{
 			if (!isdigit(c = input.front)) break;
 			i = (i * 10) + (c - '0');
-		//	debug(Num) writefln("i=%d top='%s'(%02x), pos=%s", i, input.top, input.top, input.position);
+			debug(Num) writefln("i=%d top='%s'(%02x)", i, input.front, input.front);
 			input.popFront();
 		}
 		context.line = input;	//input.commit();
@@ -375,15 +379,16 @@ body
 			input.popFront();
 			input.skip_ws();
 			
-			debug(Num) writefln("top=%s", input.front);
 			if (!input.empty && isdigit(c = input.front))
 			{
+				debug(Num) writefln("top=%s", input.front);
 				double f = i, r = 0.1;
 				do{
 					f += r * (c - '0');
 					r /= 10.0;
 					debug(Num) writefln("f=%s", f);
-				}while (isdigit(c = input.nextFront()))
+					input.popFront();
+				}while (!input.empty && isdigit(c = input.front))
 				context.line = input;	//input.commit();
 				
 				context.token.tag = Token.REAL;
