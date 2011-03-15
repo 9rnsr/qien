@@ -1,0 +1,7 @@
+fun f = (x){
+	fun h = (n){ n * 2 }
+	fun g = (y){ x + y + h(y) }
+	g
+}
+var a = f(10)
+a(20)
