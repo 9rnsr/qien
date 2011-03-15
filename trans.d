@@ -92,10 +92,11 @@ private:
 		if (slotlist.length == 0)
 		{
 			// スロットが必要＝Tree作成段階にある＝型推論済み
-			assert(type.isInferred);
-			auto size = type.isFunction ? 2 : 1;
+			auto size = getTypeSize(type);
 			
 			//std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
+			
+			//if (size >= 2) escape = true;	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 			
 			// 複数ワードの値は必ずフレーム上に配置する
 			assert(size == 1 || (size >= 2 && escape));
@@ -122,6 +123,14 @@ Fragment procEntryExit(Level level, Ex bodyexp)
 	auto lx = linearize(ex);
 	return new Fragment(lx, level.frame);
 }
+
+
+private size_t getTypeSize(in Ty type)
+{
+	assert(type.isInferred);
+	return type.isFunction ? 2 : 1;
+}
+
 
 /**
  * Translateによる処理の結果として生成されるIR
@@ -189,15 +198,8 @@ Ex immediate(RealT v)
  */
 Ex immediate(Level fn_level, bool escape)
 {
-	auto fn_label = fn_level.frame.name;
-	
-	if (escape)
-		return new Ex(T.ESEQ(
-			T.CLOS(fn_label),				// クロージャ命令(escapeするFrameをHeapにコピーし、env_ptr==FPをすり替える)
-			T.VFUN(T.TEMP(FP), fn_label)));	// 現在のFPとクロージャ本体のラベルの組＝クロージャ値
-	else
-		return new Ex(
-			T.VFUN(T.TEMP(FP), fn_label));	// 現在のFPと関数本体のラベルの組＝関数値
+	return new Ex(
+		T.VFUN(fn_level.frame.name, escape));	// 関数本体のラベル+escapeの組＝関数値
 }
 
 /**
@@ -219,9 +221,15 @@ Ex variable(Level level, Access access)
 /**
  * 関数呼び出しのIRに変換する
  */
-Ex callFun(Ex fun, Ex[] args)
+Ex callFun(Ty tyfun, Ex fun, Ex[] args)
+in { assert(tyfun.isFunction); }
+body
 {
-	return new Ex(T.CALL(unEx(fun), array(map!unEx(args))));
+	auto size = getTypeSize(tyfun.returnType);
+	if (size >= 2)
+		return new Ex(T.MEM(T.CALL(unEx(fun), array(map!unEx(args))), size));
+	else
+		return new Ex(T.CALL(unEx(fun), array(map!unEx(args))));
 }
 
 /**

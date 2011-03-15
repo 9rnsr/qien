@@ -114,6 +114,16 @@ class Ty
 			(aty.tag == TyTag.POLY && aty.tvars.length == 0 && aty.polty.isFunction);
 		
 	}
+	@property const(Ty) returnType() const
+	in { assert(actualType.isFunction); }
+	body
+	{
+		auto aty = actualType;
+		if (aty.tag == TyTag.APP)
+			return aty.targs[$-1];
+		else // (aty.tag == TyTag.POLY)
+			return aty.polty.returnType;
+	}
 	
 	string toString()
 	{

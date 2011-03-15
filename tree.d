@@ -34,7 +34,10 @@ class Exp
 {
 	mixin TagUnion!(
 		"VINT",	long,
-		"VFUN",	Exp, Label,
+	//	"FIXN",	long,
+	//	"FLON",	double,
+		"VFUN",	Label, bool,		// 暗黙にFPを取る
+	//	"FUNC",	Label, bool
 		"NAME",	Label,
 		"TEMP",	Temp,
 		"BIN", 	BinOp, Exp, Exp,
@@ -87,8 +90,7 @@ class Stm
 		"JUMP",	Exp, Label[],
 		"CJUMP",Relop, Exp, Exp, Label, Label,
 		"SEQ",	Stm[],
-		"LABEL",Label,
-		"CLOS",	Label
+		"LABEL",Label
 	);
 public:
 	void debugOut(TreeOut tout){
@@ -100,7 +102,6 @@ public:
 		case Tag.CJUMP:	return tout(tagname, data3.tupleof[1..$]);
 		case Tag.SEQ:	return tout(tagname, data4.tupleof[1..$]);
 		case Tag.LABEL:	return tout(tagname, data5.tupleof[1..$]);
-		case Tag.CLOS:	return tout(tagname, data6.tupleof[1..$]);
 		}
 	}
 	
@@ -116,7 +117,6 @@ public:
 			case Tag.CJUMP:	foreach( i,t; data3.tupleof ) if( data3.tupleof[i] != s.data3.tupleof[i] ) return false;		break;
 			case Tag.SEQ:	foreach( i,t; data4.tupleof ) if( data4.tupleof[i] != s.data4.tupleof[i] ) return false;		break;
 			case Tag.LABEL:	foreach( i,t; data5.tupleof ) if( data5.tupleof[i] != s.data5.tupleof[i] ) return false;		break;
-			case Tag.CLOS:	foreach( i,t; data6.tupleof ) if( data6.tupleof[i] != s.data6.tupleof[i] ) return false;		break;
 			}
 			return true;
 		}

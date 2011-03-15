@@ -170,7 +170,7 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.FUN:
 			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
 		
-		case AstTag.ADD:
+		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -183,7 +183,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "+ mismatch types");
 		
-		case AstTag.SUB:
+		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -196,7 +196,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "- mismatch types");
 		
-		case AstTag.MUL:
+		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -209,7 +209,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else
 				error(n.pos, "* mismatch types");
 		
-		case AstTag.DIV:
+		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
 			tie[tl, xl] <<= trexp(n.lhs);
@@ -237,7 +237,7 @@ out(r){ assert(r.field[1] !is null); }body
 			if (!unify(tf, tenv.Arrow(ta, tr)))
 				assert(0, "type mismatch");
 			
-			xr = trans.callFun(xf, xa);
+			xr = trans.callFun(tf, xf, xa);
 			return tuple(tr, xr);
 		
 		case AstTag.ASSIGN:
@@ -358,9 +358,9 @@ out(r){ assert(r.field[1] !is null); }body
 }
 
 
-void findEscape(AstNode n)
+void findEscape(AstNode n, uint depth=0)
 {
-	void traverse(uint depth, AstNode n)
+	void traverse(AstNode n, uint depth)
 	{
 		final switch (n.tag)
 		{
@@ -392,14 +392,14 @@ void findEscape(AstNode n)
 		case AstTag.SUB:
 		case AstTag.MUL:
 		case AstTag.DIV:
-			traverse(depth, n.lhs);
-			traverse(depth, n.rhs);
+			traverse(n.lhs, depth);
+			traverse(n.rhs, depth);
 			break;
 		
 		case AstTag.CALL:
-			traverse(depth, n.lhs);
+			traverse(n.lhs, depth);
 			foreach (arg ; n.rhs[])
-				traverse(depth, arg);
+				traverse(arg, depth);
 			break;
 		
 		case AstTag.ASSIGN:
@@ -414,18 +414,25 @@ void findEscape(AstNode n)
 				mapVarEsc[id.sym] = tuple(depth, false);
 				foreach (prm; fn.prm[])
 					mapVarEsc[prm.sym] = tuple(depth+1, false);
-				traverse(depth+1, fn.blk);
+				findEscape(fn.blk, depth+1);
 			}
 			else
 				mapVarEsc[id.sym] = tuple(depth, false);
 			break;
 		}
-		
-		if (n.next)
-			traverse(depth, n.next);
 	}
 
-	traverse(0, n);
+	do{
+		traverse(n, depth);
+		if (n.next is null && n.tag == AstTag.IDENT)
+		{
+			if (auto entry = n.sym in mapVarEsc)
+			{
+				entry.escape = true;
+				debugout("escaped %s : return depth %s", n.sym, depth);
+			}
+		}
+	}while ((n = n.next) !is null)
 }
 
 
