@@ -101,16 +101,16 @@ public:
 			debugCodeMapPrologue(this, munch([
 				// FP + frameSize -> SP
 				T.MOVE(
-					T.BIN(T.BinOp.ADD, T.TEMP(FP), T.VINT(frameSize)),
+					T.BIN(T.BinOp.ADD, T.TEMP(FP), T.FIXN(frameSize)),
 					T.TEMP(SP)),
 				// frameSize -> [FP + 1]
 				T.MOVE(
-					T.VINT(frameSize),
+					T.FIXN(frameSize),
 					T.MEM(
 						T.BIN(
 							T.BinOp.ADD,
 							T.TEMP(FP),
-							T.VINT(1)), 1))	]))
+							T.FIXN(1)), 1))	]))
 			~ instr
 			~ debugCodeMapEpilogue(this, [Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel])]);
 	}
@@ -134,7 +134,7 @@ public:
 					T.BIN(
 						T.BinOp.ADD,
 						slink,
-						T.VINT(slot.ofs)), size);
+						T.FIXN(slot.ofs)), size);
 		}
 		else
 		{

@@ -86,8 +86,8 @@ Instr[] munch(T.Stm[] stms)
 		T.BinOp	binop;
 		
 		return match(exp,
-			T.VINT[&n],{
-				debug(munch) writefln("munchExp : VINT[&n]");
+			T.FIXN[&n],{
+				debug(munch) writefln("munchExp : FIXN[&n]");
 				debug(munch) writefln("         : exp = %s", exp);
 				return result((Temp r){
 					emit(Instr.OPE(I.instr_imm(n, r.num), [], [r], []));
@@ -135,7 +135,7 @@ Instr[] munch(T.Stm[] stms)
 			},
 
 			T.CALL[T.MEM[&base, &size], &el],{
-				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), VINT[&n]]], &el]");
+				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), FIXN[&n]]], &el]");
 				debug(munch) writefln("         : exp = %s", exp);
 				
 				assert(size == 2);
@@ -273,12 +273,12 @@ Instr[] munch(T.Stm[] stms)
 				}
 			},
 			T.MOVE[&e1,  mem2],{
-				if (T.VFUN[&l, &esc] <<= e1)
+				if (T.FUNC[&l, &esc] <<= e1)
 				{
 					if (esc)
 						emit(Instr.OPE(I.instr_pushe(), [FP], [], []));
 					
-					debug(munch) debugout("munchStm : MOVE[VFUN[&l, &esc], mem2]");
+					debug(munch) debugout("munchStm : MOVE[FUNC[&l, &esc], mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
 					assert(s2 == 2);
 					// 1 -> temp

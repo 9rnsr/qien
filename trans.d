@@ -179,7 +179,7 @@ public:
  */
 Ex immediate(IntT v)
 {
-	return new Ex(T.VINT(v));
+	return new Ex(T.FIXN(v));
 }
 /**
  * 実数値を即値IRに変換する
@@ -199,7 +199,7 @@ Ex immediate(RealT v)
 Ex immediate(Level fn_level, bool escape)
 {
 	return new Ex(
-		T.VFUN(fn_level.frame.name, escape));	// 関数本体のラベル+escapeの組＝関数値
+		T.FUNC(fn_level.frame.name, escape));	// 関数本体のラベル+escapeの組＝関数値
 }
 
 /**
@@ -284,7 +284,7 @@ Ex ret(Ex value)
 	size_t size;
 	size = 
 		match(	ex,
-				T.VFUN[$],		{ return 2u;   },
+				T.FUNC[$],		{ return 2u;   },
 				T.MEM[_, &size],{ return size; },
 				_,				{ return 1u;   }	);
 	
@@ -317,16 +317,16 @@ T.Exp unEx(Ex exp)
 	case Ex.Tag.EX:
 		return exp.ex;
 	case Ex.Tag.NX:
-		return T.ESEQ(exp.nx, T.VINT(0));	//文は式として0を返す
+		return T.ESEQ(exp.nx, T.FIXN(0));	//文は式として0を返す
 	case Ex.Tag.CX:
 		auto r = newTemp();
 		auto t = newLabel(), f = newLabel();
 		return T.ESEQ(
 			T.SEQ([
-				T.MOVE(T.VINT(1), T.TEMP(r)),
+				T.MOVE(T.FIXN(1), T.TEMP(r)),
 				exp.cx(t, f),
 				T.LABEL(f),
-				T.MOVE(T.VINT(0), T.TEMP(r)),
+				T.MOVE(T.FIXN(0), T.TEMP(r)),
 				T.LABEL(t)
 			]),
 			T.TEMP(r)

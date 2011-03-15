@@ -33,11 +33,9 @@ enum Relop
 class Exp
 {
 	mixin TagUnion!(
-		"VINT",	long,
-	//	"FIXN",	long,
+		"FIXN",	long,
 	//	"FLON",	double,
-		"VFUN",	Label, bool,		// 暗黙にFPを取る
-	//	"FUNC",	Label, bool
+		"FUNC",	Label, bool,		// 暗黙にFPを取る
 		"NAME",	Label,
 		"TEMP",	Temp,
 		"BIN", 	BinOp, Exp, Exp,
@@ -49,8 +47,8 @@ public:
 	void debugOut(TreeOut tout){
 		auto tagname = to!string(tag);
 		final switch( tag ){
-		case Tag.VINT:	return tout(tagname, data0.tupleof[1..$]);
-		case Tag.VFUN:	return tout(tagname, data1.tupleof[1..$]);
+		case Tag.FIXN:	return tout(tagname, data0.tupleof[1..$]);
+		case Tag.FUNC:	return tout(tagname, data1.tupleof[1..$]);
 		case Tag.NAME:	return tout(tagname, data2.tupleof[1..$]);
 		case Tag.TEMP:	return tout(tagname, data3.tupleof[1..$]);
 		case Tag.BIN:	return tout(tagname, data4.tupleof[1..$]);
@@ -66,8 +64,8 @@ public:
 			if( tag != e.tag ) return false;
 			
 			final switch( tag ){
-			case Tag.VINT:	foreach( i,t; data0.tupleof ) if( data0.tupleof[i] != e.data0.tupleof[i] ) return false;		break;
-			case Tag.VFUN:	foreach( i,t; data1.tupleof ) if( data1.tupleof[i] != e.data1.tupleof[i] ) return false;		break;
+			case Tag.FIXN:	foreach( i,t; data0.tupleof ) if( data0.tupleof[i] != e.data0.tupleof[i] ) return false;		break;
+			case Tag.FUNC:	foreach( i,t; data1.tupleof ) if( data1.tupleof[i] != e.data1.tupleof[i] ) return false;		break;
 			case Tag.NAME:	foreach( i,t; data2.tupleof ) if( data2.tupleof[i] != e.data2.tupleof[i] ) return false;		break;
 			case Tag.TEMP:	foreach( i,t; data3.tupleof ) if( data3.tupleof[i] != e.data3.tupleof[i] ) return false;		break;
 			case Tag.BIN:	foreach( i,t; data4.tupleof ) if( data4.tupleof[i] != e.data4.tupleof[i] ) return false;		break;

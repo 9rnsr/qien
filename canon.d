@@ -25,22 +25,22 @@ T.Stm[] linearize(T.Stm s)
 
 T.Stm seq(T.Stm x, T.Stm y)
 {
-	if (T.EXP[T.VINT[_]] <<= x) return y;
-	if (T.EXP[T.VINT[_]] <<= y) return x;
+	if (T.EXP[T.FIXN[_]] <<= x) return y;
+	if (T.EXP[T.FIXN[_]] <<= y) return x;
 	return T.SEQ([x,y]);
 }
 
 bool commute(T.Stm s, T.Exp e)
 {
-	if (T.EXP[T.VINT[_]] <<= s) return true;
+	if (T.EXP[T.FIXN[_]] <<= s) return true;
 	if (T.NAME[_] <<= e) return true;
-	if (T.VINT[_] <<= e) return true;
+	if (T.FIXN[_] <<= e) return true;
 	return false;
 }
 
 Tuple!(T.Stm, T.Exp[]) reorder(T.Exp[] el)
 {
-	auto nop = T.EXP(T.VINT(0));
+	auto nop = T.EXP(T.FIXN(0));
 
 	if (el.length == 0)
 		return tuple(nop, (T.Exp[]).init);
