@@ -122,12 +122,12 @@ Instr[] munch(T.Stm[] stms)
 				debug(munch) writefln("         : exp = %s", exp);
 				return t;
 			},
-			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(FP), &disp], /*size=*/1],{
-				debug(munch) writefln("munchExp : MEM[BIN[BinOp.ADD, TEMP(FP), &disp]]");
+			T.MEM[T.BIN[T.BinOp.ADD, T.TEMP(EP), &disp], /*size=*/1],{
+				debug(munch) writefln("munchExp : MEM[BIN[BinOp.ADD, TEMP(EP), &disp]]");
 				debug(munch) writefln("         : exp = %s", exp);
 				auto d = munchExp(disp);
 				return result((Temp r){ 
-					emit(Instr.OPE(I.instr_add(FP.num, d.num, temp.num), [FP,d], [temp], []));	// FP + d -> temp
+					emit(Instr.OPE(I.instr_add(EP.num, d.num, temp.num), [EP,d], [temp], []));	// EP + d -> temp
 					emit(Instr.OPE(I.instr_get(temp.num, r.num), [temp], [r], []));				// [temp] -> r
 				});
 			},
@@ -159,7 +159,7 @@ Instr[] munch(T.Stm[] stms)
 			},
 
 			T.CALL[T.MEM[&base, &size], &el],{
-				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(FP), FIXN[&n]]], &el]");
+				debug(munch) writefln("munchExp : CALL[MEM[BIN[BinOp.ADD, T.TEMP(EP), FIXN[&n]]], &el]");
 				debug(munch) writefln("         : exp = %s", exp);
 				
 				assert(size == 2);
@@ -224,7 +224,7 @@ Instr[] munch(T.Stm[] stms)
 					}
 				}
 				emit(Instr.OPE(I.instr_mov(tRV.num, RV.num), [RV,temp], [RV], []));
-				emit(Instr.OPE(I.instr_call(label.num), [CP,SP,label], [FP,RV], []));
+				emit(Instr.OPE(I.instr_call(label.num), [CP,SP,label], [EP,RV], []));
 				
 				// free memory for temporary arguments on stack
 				if (rvalue_size > 0)
@@ -284,7 +284,7 @@ Instr[] munch(T.Stm[] stms)
 				if (T.FUNC[&l, &esc] <<= e1)
 				{
 					if (esc)
-						emit(Instr.OPE(I.instr_pushe(), [FP], [], []));
+						emit(Instr.OPE(I.instr_pushe(), [EP], [], []));
 					
 					debug(munch) debugout("munchStm : MOVE[FUNC[&l, &esc], mem2]");
 					debug(munch) debugout("         : stm = "), debugout(stm);
@@ -299,7 +299,7 @@ Instr[] munch(T.Stm[] stms)
 					emit(Instr.OPE(I.instr_imm(l.num, temp.num), [], [temp], []));
 					
 					emit(Instr.OPE(I.instr_set(temp.num, dst0.num), [temp,dst0], [], []));	// label -> mem2.ptr+d0
-					emit(Instr.OPE(I.instr_set(FP  .num, dst1.num), [FP  ,dst1], [], []));	// slink -> mem2.ptr+d1
+					emit(Instr.OPE(I.instr_set(EP  .num, dst1.num), [EP  ,dst1], [], []));	// slink -> mem2.ptr+d1
 				}
 				else
 				{

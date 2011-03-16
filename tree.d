@@ -35,7 +35,7 @@ class Exp
 	mixin TagUnion!(
 		"FIXN",	long,
 	//	"FLON",	double,
-		"FUNC",	Label, bool,		// 暗黙にFPを取る
+		"FUNC",	Label, bool,		// 暗黙にEPを取る
 		"NAME",	Label,
 		"TEMP",	Temp,
 		"BIN", 	BinOp, Exp, Exp,

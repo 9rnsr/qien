@@ -227,7 +227,7 @@ template DefInstr_()
 			auto rv = registers[RV.num];
 			
 			//epが指すenvもコピーしないと。
-			auto pep = &registers[FP.num];
+			auto pep = &registers[EP.num];
 			while (true)
 			{
 				auto ep = *pep;
@@ -358,13 +358,13 @@ private:
 	ulong[256] registers;
 	size_t pc;
 	@property ulong cp() { return registers[CP.num]; }	// todo
-	@property ulong ep() { return registers[FP.num]; }	// todo
+	@property ulong ep() { return registers[EP.num]; }	// todo
 	@property ulong sp() { return stack.length; }
 
 	@property ulong rv() { return registers[RV.num]; }
 	
 	@property void cp(ulong n){ registers[CP.num] = n; }
-	@property void ep(ulong n){ registers[FP.num] = n; }
+	@property void ep(ulong n){ registers[EP.num] = n; }
 	@property void sp(ulong n){ stack.length = /*registers[SP.num] = */n; }
 	
 
@@ -488,7 +488,7 @@ public:
 			   static if ((chg & REG_SP) == 0)
 				if (x.DST == SP.num) error("cannot set sp");
 				
-				if (x.DST == FP.num) error("cannot set ep");
+				if (x.DST == EP.num) error("cannot set ep");
 				if (x.DST == CP.num) error("cannot set cp");
 			  }
 			  static if ((chg & (REG_DST | REG_SP)) == (REG_DST | REG_SP))
@@ -538,7 +538,7 @@ public:
 	  {
 		void printStack()	{ std.stdio.writefln("   stack = %s", stack); }
 		void printSP()		{ std.stdio.writefln("      sp = r%02s : %08X", SP.num, sp); }
-		void printEP()		{ std.stdio.writefln("      ep = r%02s : %08X", FP.num, ep); }
+		void printEP()		{ std.stdio.writefln("      ep = r%02s : %08X", EP.num, ep); }
 		void printCP()		{ std.stdio.writefln("      cp = r%02s : %08X", CP.num, cp); }
 		
 		foreach (num, pc; label_to_pc)
@@ -582,7 +582,7 @@ version(unittest)
 {
 	static this()
 	{
-		frame.initialize();		// CP,FP,RV,SP
+		frame.initialize();		// CP,EP,RV,SP
 	}
 }
 unittest
@@ -642,7 +642,7 @@ unittest
 		
 		auto m = new Machine();
 		m.code ~= I.instr_pushc();
-		m.code ~= I.instr_pushs(FP.num);	// pushs ep (slink)
+		m.code ~= I.instr_pushs(EP.num);	// pushs ep (slink)
 		m.code ~= I.instr_imm(0x2, 10);		
 		m.code ~= I.instr_pushs(10);		// pushs #2 (frameSize, local variables count == 0)
 		m.code ~= I.instr_imm(0xA, 10);		// fn label(#xA) -> r10

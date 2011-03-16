@@ -9,7 +9,7 @@ private import xtk.format : format;
 import assem;
 
 Temp CP;	// Continuation Pointer
-Temp FP;	// Frame Pointer
+Temp EP;	// Frame Pointer
 Temp RV;	// Return Value
 Temp SP;	// Stack Pointer
 Temp NIL;	// Nil Temporary (do not have real memory)
@@ -19,7 +19,7 @@ void initialize()
 	sym.initialize();
 	
 	CP  = newTemp("CP");
-	FP  = newTemp("FP");
+	EP  = newTemp("EP");
 	SP  = newTemp("SP");
 	RV  = newTemp("RV");
 	NIL = newTemp("NIL");
@@ -99,20 +99,20 @@ public:
 		
 		return
 			debugCodeMapPrologue(this, munch([
-				// FP + frameSize -> SP
+				// EP + frameSize -> SP
 				T.MOVE(
-					T.BIN(T.BinOp.ADD, T.TEMP(FP), T.FIXN(frameSize)),
+					T.BIN(T.BinOp.ADD, T.TEMP(EP), T.FIXN(frameSize)),
 					T.TEMP(SP)),
-				// frameSize -> [FP + 1]
+				// frameSize -> [EP + 1]
 				T.MOVE(
 					T.FIXN(frameSize),
 					T.MEM(
 						T.BIN(
 							T.BinOp.ADD,
-							T.TEMP(FP),
+							T.TEMP(EP),
 							T.FIXN(1)), 1))	]))
 			~ instr
-			~ debugCodeMapEpilogue(this, [Instr.OPE(I.instr_ret(), [], [CP, FP, SP], [ReturnLabel])]);
+			~ debugCodeMapEpilogue(this, [Instr.OPE(I.instr_ret(), [], [CP, EP, SP], [ReturnLabel])]);
 	}
 	
 	/**

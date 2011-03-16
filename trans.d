@@ -207,7 +207,7 @@ Ex immediate(Level fn_level, bool escape)
  */
 Ex variable(Level level, Access access)
 {
-	auto slink = T.TEMP(FP);
+	auto slink = T.TEMP(EP);
 //	debugout("* %s", slink);
 	while (level !is access.level)
 	{
@@ -302,7 +302,7 @@ Ex ret(Ex value)
  */
 Ex assign(Level level, Access access, Ex value)
 {
-	auto slink = T.TEMP(FP);
+	auto slink = T.TEMP(EP);
 	while (level !is access.level)
 	{
 		slink = level.frame.exp(slink, level.frame.formals[0]);	//静的リンクを取り出す
