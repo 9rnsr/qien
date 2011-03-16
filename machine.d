@@ -483,6 +483,14 @@ public:
 				
 				${ mixin("DefInstr.$name.run") }
 				
+			  static if (chg & REG_DST)
+			  {
+			   static if ((chg & REG_SP) == 0)
+				if (x.DST == SP.num) error("cannot set sp");
+				
+				if (x.DST == FP.num) error("cannot set ep");
+				if (x.DST == CP.num) error("cannot set cp");
+			  }
 			  static if ((chg & (REG_DST | REG_SP)) == (REG_DST | REG_SP))
 			  {
 				if (x.DST == SP.num)
