@@ -100,13 +100,13 @@ class Ty
 		return false;
 	}
 	
-	@property bool isInferred() const
+	@property bool isInferred()
 	{
 		auto aty = actualType;
 		return (aty.tag != TyTag.VAR || aty.tag != TyTag.META);
 	}
 	
-	@property bool isFunction() const
+	@property bool isFunction()
 	{
 		auto aty = actualType;
 		return 
@@ -114,7 +114,7 @@ class Ty
 			(aty.tag == TyTag.POLY && aty.tvars.length == 0 && aty.polty.isFunction);
 		
 	}
-	@property const(Ty) returnType() const
+	@property Ty returnType()
 	in { assert(actualType.isFunction); }
 	body
 	{
@@ -123,6 +123,11 @@ class Ty
 			return aty.targs[$-1];
 		else // (aty.tag == TyTag.POLY)
 			return aty.polty.returnType;
+	}
+	
+	string toString() const
+	{
+		return (cast(Ty)this).toString();
 	}
 	
 	string toString()
@@ -138,7 +143,7 @@ class Ty
 	}
 	
 private:
-	const(Ty) actualType() const
+	Ty actualType()
 	{
 		return (tag == TyTag.META && actty) ? actty : this;
 	}
@@ -262,6 +267,10 @@ public:
 		t.tvars = tvars;
 		t.polty = polty;
 		return t;
+	}
+	Ty Meta()
+	{
+		return Meta(newmetavar());
 	}
 	Ty Meta(MetaVar n)
 	{

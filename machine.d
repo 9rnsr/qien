@@ -4,6 +4,9 @@ This module provides interpreter implementation.
 VM
 	instr_xxx() = add xxx instruction
 	interpret() = run interpreter
+
+TODO:
+    synchronization of sp (stack.length and registers[SP.num])
  */
 module machine;
 
@@ -89,7 +92,15 @@ template DefInstr_()
 	//			x.SRC , registers[x.SRC ],
 	//			x.SRC2, registers[x.SRC2],
 	//			x.DST , registers[x.DST ]);
-			registers[x.DST] = registers[x.SRC] $op registers[x.SRC2]; });
+			auto res = registers[x.SRC] $op registers[x.SRC2];
+			if (x.DST == SP.num)
+			{
+				sp = res;	// change stack size
+				debug(machine) printStack();
+			}
+			else
+				registers[x.DST] = res;
+		});
 		enum str = mixin(expand!q{ format("r%s $op r%s -> r%s", x.SRC, x.SRC2, x.DST) });
 	}
 	struct add{ mixin INSTR_RRR!("+"); }
@@ -138,8 +149,11 @@ template DefInstr_()
 	struct pushs
 	{
 		enum gen = q{ [b2w(ope, cast(ubyte)a[0], 0,0)] };
-		enum run = q{ stack.put(registers[x.SRC]); 
-				debug(machine) printStack();
+		enum run = q{
+			stack.put(registers[x.SRC]);
+			registers[SP.num] = stack.length;
+			debug(machine) printStack();
+			debug(machine) printRegs();
 		};
 		enum str = q{ format("r%s -> [sp++]", x.SRC) };
 	}
@@ -147,9 +161,12 @@ template DefInstr_()
 	struct pop
 	{
 		enum gen = q{ [b2w(ope, 0,0, cast(ubyte)a[0])] };
-		enum run = q{ if (sp == 0) error("stack underflow");
-					  registers[x.DST] = stack.pop(); 
-				debug(machine) printStack();
+		enum run = q{
+			if (sp == 0) error("stack underflow");
+			registers[x.DST] = stack.pop(); 
+			registers[SP.num] = stack.length;
+			debug(machine) printStack();
+			debug(machine) printRegs();
 		};
 		enum str = q{ format("[--sp] -> r%s", x.DST) };
 	}
@@ -202,6 +219,7 @@ template DefInstr_()
 			cp = sp;
 			stack.put(0xBEEF);	// ret pc (filled by call)
 			stack.put(ep);		// ret ep
+			registers[SP.num] = stack.length;
 			debug(machine) printStack();
 			debug(machine) printRegs();
 		};
@@ -351,13 +369,13 @@ private:
 	size_t pc;
 	@property ulong cp() { return registers[CP.num]; }	// todo
 	@property ulong ep() { return registers[FP.num]; }	// todo
-	@property ulong sp() { return registers[SP.num] = stack.length; }
+	@property ulong sp() { return registers[SP.num]; }
 
 	@property ulong rv() { return registers[RV.num]; }
 	
 	@property void cp(ulong n){ registers[CP.num] = n; }
 	@property void ep(ulong n){ registers[FP.num] = n; }
-	@property void sp(ulong n){ stack.length = n; }
+	@property void sp(ulong n){ stack.length = registers[SP.num] = n; }
 	
 
 	ulong[] code;
@@ -500,6 +518,7 @@ public:
 		stack.put(0);			// outermost old_ep
 		stack.put(0);			// outermost env->up  ( = void)
 		stack.put(0xBEEF);		// outermost env->size(placholder)
+		registers[SP.num] = stack.length;
 		
 		debug(machine) printStack();
 		debug(machine) printRegs();

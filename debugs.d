@@ -192,7 +192,7 @@ void debugCodeMapPrint()
 			auto stm = tup[1];
 			auto instr = tup[2];
 			writefln("%s:%s %s", n.pos.line+1, n.pos.column+1, n.toShortString);
-		//	debugout(stm);
+			debug(munch) debugout(stm);
 			(new Machine(instr)).print();
 		}
 		writefln("--");

@@ -125,7 +125,7 @@ Fragment procEntryExit(Level level, Ex bodyexp)
 }
 
 
-private size_t getTypeSize(in Ty type)
+private size_t getTypeSize(Ty type)
 {
 	assert(type.isInferred);
 	return type.isFunction ? 2 : 1;
@@ -215,6 +215,7 @@ Ex variable(Level level, Access access)
 		level = level.parent;
 //		debugout("* %s", slink);
 	}
+	debug(trans) std.stdio.writefln("trans.variable slink = %s, access.slots[0] = %s, access.size = %s", slink, access.slots[0], access.size);
 	return new Ex(level.frame.exp(slink, access.slots[0], access.size));
 }
 

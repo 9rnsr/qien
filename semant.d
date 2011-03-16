@@ -33,22 +33,12 @@ Fragment[] transProg(AstNode n)
 
 	Ty ty;
 	Ex ex;
-	tie[ty, ex] <<= transExp(outermost, tenv, venv, n);
+	tie[ty, ex] <<= transExp(outermost, tenv, venv, null, n);
 	
 	procEntryExit(outermost, ex);
 	
 	frag = frag.reverse;
 	
-	debug(semant)
-	{
-		debugout("========");
-		debugout("transProg = %s", ty);
-		foreach (f; frag){
-			debugout("----");
-			debugout("%s : ", f.p[1].name);
-			f.debugOut();
-		}
-	}
 
 	return frag;
 }
@@ -131,13 +121,22 @@ class VarEnv
 
 
 /// 
-Tuple!(Ty, Ex) transExp(Level level, TypEnv tenv, VarEnv venv, AstNode n)
+Tuple!(Ty, Ex) transExp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
 out(r){ assert(r.field[1] !is null); }body
 {
 	const unify = &tenv.unify;	//短縮名
 	
-	Tuple!(Ty, Ex) trexp(AstNode n)
+	Tuple!(Ty, Ex) trexp(Ty type, AstNode n)
 	{
+		Ty typecheck(Ty ty){
+			if (type is null)
+				return ty;
+			else if (unify(ty, type))
+				return ty;
+			else
+				throw new Exception("cannot type inference");
+		}
+		
 		final switch (n.tag)
 		{
 		case AstTag.NOP:
@@ -155,11 +154,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.IDENT:
 			if (auto entry = n.sym in venv)
 			{
-				auto inst_t = tenv.instantiate(entry.ty);
-//				debug(semant) debugout("id %s -> %s", n.sym, entry.ty);
-//				debug(semant) debugout("   instantiate -> %s", inst_t);
-//			//	debug(semant) debugout("   venv = %s", venv);
-				
+				auto inst_t = typecheck(tenv.instantiate(entry.ty));
+				debug(semant) writefln("ident %s : %s => %s", n.sym, entry.ty, inst_t);
 				return tuple(inst_t, trans.variable(level, entry.access));
 			}
 			else
@@ -173,8 +169,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(n.lhs);
-			tie[tr, xr] <<= trexp(n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);
+			tie[tr, xr] <<= trexp(type, n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binAddInt(xl, xr));
@@ -186,8 +182,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(n.lhs);
-			tie[tr, xr] <<= trexp(n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);
+			tie[tr, xr] <<= trexp(type, n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binSubInt(xl, xr));
@@ -199,8 +195,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(n.lhs);
-			tie[tr, xr] <<= trexp(n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);
+			tie[tr, xr] <<= trexp(type, n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binMulInt(xl, xr));
@@ -212,8 +208,8 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(n.lhs);
-			tie[tr, xr] <<= trexp(n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);
+			tie[tr, xr] <<= trexp(type, n.rhs);
 			
 			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
 				return tuple(tenv.Int, trans.binDivInt(xl, xr));
@@ -226,18 +222,20 @@ out(r){ assert(r.field[1] !is null); }body
 			Ty tf, tr;  Ty[] ta;
 			Ex xf, xr;  Ex[] xa;
 			
-			tie[tf, xf] <<= trexp(n.lhs);
+			debug(semant) std.stdio.writefln("call ----");
 			foreach (arg ; n.rhs[])
 			{
 				ta.length += 1;
 				xa.length += 1;
-				tie[ta[$-1], xa[$-1]] <<= trexp(arg);
+				tie[ta[$-1], xa[$-1]] <<= trexp(null, arg);
 			}
-			tr = tenv.Meta(tenv.newmetavar());
-			if (!unify(tf, tenv.Arrow(ta, tr)))
-				assert(0, "type mismatch");
+			tr = type is null ? tenv.Meta() : type;
+			tie[tf, xf] <<= trexp(tenv.Arrow(ta, tr), n.lhs);
+			tr = typecheck(tf.returnType);
 			
 			xr = trans.callFun(tf, xf, xa);
+			debug(semant) std.stdio.writefln("call tf = %s, isFunction = %s", tf, tf.isFunction);
+			debug(semant) std.stdio.writefln("     xf = %s", xf);
 			return tuple(tr, xr);
 		
 		case AstTag.ASSIGN:
@@ -263,6 +261,8 @@ out(r){ assert(r.field[1] !is null); }body
 					
 					tp ~= prm_typ;
 					fn_venv.add(prm.sym, prm_acc, prm_typ);
+					
+					debug(semant) std.stdio.writefln("fun_prm %s : %s", prm.sym, prm_typ);
 				}
 				
 				Ty tr, tf;
@@ -271,7 +271,7 @@ out(r){ assert(r.field[1] !is null); }body
 				
 				Ty tb;
 				Ex xb;
-				tie[tb, xb] <<= transExp(fn_level, fn_tenv, fn_venv, fn.blk);
+				tie[tb, xb] <<= transExp(fn_level, fn_tenv, fn_venv, tr, fn.blk);
 				if (!fn_tenv.unify(tr, tb))
 					error(n.pos, "return type mismatch in def-fun");
 				
@@ -283,11 +283,7 @@ out(r){ assert(r.field[1] !is null); }body
 				if (!venv.add(id.sym, acc, tf2))
 					error(n.pos, id.toString ~ " is already defined");
 				
-//				debug(semant) debugout("fun tr = %s", tr);
-//				debug(semant) debugout("    tf = %s", tf);
-//				debug(semant) debugout("    tb = %s", tb);
-//				debug(semant) debugout("    tf2 = %s", tf2);
-//				debug(semant) debugout("    venv = %s", venv);
+				debug(semant) std.stdio.writefln("fun_def %s : %s => %s", id.sym, tf, tf2);
 				
 				procEntryExit(fn_level, xb);
 				
@@ -298,7 +294,7 @@ out(r){ assert(r.field[1] !is null); }body
 			{
 				Ty ty;
 				Ex ex;
-				tie[ty, ex] <<= trexp(n.rhs);
+				tie[ty, ex] <<= trexp(null, n.rhs);
 				if (ty is tenv.Nil)
 					error(n.pos, "infer error...");
 				
@@ -320,8 +316,7 @@ out(r){ assert(r.field[1] !is null); }body
 					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
 				}
-//				debug(semant) debugout("var ty = %s", ty);
-//				debug(semant) debugout("    venv = %s", venv);
+//				debug(semant) std.stdio.writefln("var_def %s : %s", id.sym, ty);
 				
 				//初期化式の結果を代入
 				return tuple(tenv.Unit, trans.assign(level, acc, ex));
@@ -331,28 +326,19 @@ out(r){ assert(r.field[1] !is null); }body
 	
 	Ty ty;
 	Ex ex, x;
-  version(none){
-	tie[ty, ex] <<= trexp(n);
-	if (n.next is null)
-		ex = trans.ret(ex);
-	while ((n = n.next) !is null)
-	{
-		tie[ty, x] <<= trexp(n);
-		
-		if (n.next is null)
-			x = trans.ret(x);
-		
-		ex = trans.sequence(ex, x);
-	}
-  }else{
 	do{
-		tie[ty, x] <<= trexp(n);
 		if (n.next is null)
+		{
+			tie[ty, x] <<= trexp(type, n);
 			x = trans.ret(x);
+		}
+		else
+		{
+			tie[ty, x] <<= trexp(null, n);
+		}
 		debugCodeMap(level, n, x);
 		ex = trans.sequence(ex, x);
 	}while ((n = n.next) !is null)
-  }
 
 	return tuple(ty, ex);
 }
