@@ -255,7 +255,7 @@ out(r){ assert(r.field[1] !is null); }body
 				Ty[] tp;
 				foreach (prm; fn.prm[])
 				{
-					auto prm_typ = fn_tenv.Meta(fn_tenv.newmetavar());
+					auto prm_typ = fn_tenv.Meta();
 					auto prm_esc = mapVarEsc[prm.sym].escape;
 					auto prm_acc = fn_level.allocLocal(prm_typ, true/*prm_esc*/);	// 仮引数は常にFrameに割り当て
 					
@@ -266,7 +266,7 @@ out(r){ assert(r.field[1] !is null); }body
 				}
 				
 				Ty tr, tf;
-				tr = fn_tenv.Meta(fn_tenv.newmetavar());
+				tr = fn_tenv.Meta();
 				tf = fn_tenv.Arrow(tp, tr);
 				
 				Ty tb;
@@ -301,21 +301,13 @@ out(r){ assert(r.field[1] !is null); }body
 				auto esc = mapVarEsc[id.sym].escape;
 				if (ty.isFunction) esc = true;	// alocation hack?
 				
-				//if (used(id) ){//todo
-				version (all)//todo
-				{
-					ty = tenv.Poly([], ty);
-					auto acc = level.allocLocal(ty, esc);
-					if (!venv.add(id.sym, acc, ty))
-						error(n.pos, id.toString ~ " is already defined");
-				}
-				else
-				{
+				//if (used(id) )	// TODO
+				//{
 					ty = tenv.generalize(ty);
 					auto acc = level.allocLocal(ty, esc);
 					if (!venv.add(id.sym, acc, ty))
 						error(n.pos, id.toString ~ " is already defined");
-				}
+				//}
 //				debug(semant) std.stdio.writefln("var_def %s : %s", id.sym, ty);
 				
 				//初期化式の結果を代入

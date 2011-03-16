@@ -206,8 +206,8 @@ public:
 	}
 
 public:
-	TyVar newtyvar()		{ return d.tvar_count++; }
-	MetaVar newmetavar()	{ 
+	private TyVar newtyvar()		{ return d.tvar_count++; }
+	private MetaVar newmetavar()	{ 
 	  version(none){
 		//typ.d:153               return d.mvar_count++; }
 		//0040b927: 8b4dfc                  mov ecx, [ebp-0x4]			;[edx+0x30] == d.mvar_count
@@ -255,13 +255,13 @@ public:
 		t.targs = targs;
 		return t;
 	}
-	Ty Var(TyVar n)
+	private Ty Var(TyVar n)
 	{
 		auto t = new Ty(TyTag.VAR);
 		t.tvnum = n;
 		return t;
 	}
-	Ty Poly(TyVar[] tvars, Ty polty)
+	private Ty Poly(TyVar[] tvars, Ty polty)
 	{
 		auto t = new Ty(TyTag.POLY);
 		t.tvars = tvars;
@@ -272,7 +272,7 @@ public:
 	{
 		return Meta(newmetavar());
 	}
-	Ty Meta(MetaVar n)
+	private Ty Meta(MetaVar n)
 	{
 		auto t = new Ty(TyTag.META);
 		t.mvnum = n;
@@ -430,6 +430,12 @@ public:
 	/// tを汎化する
 	Ty generalize(Ty t)
 	{
+	  version (all)	// TODO
+	  {
+		return Poly([], t);
+	  }
+	  else
+	  {
 		// tの構造を書き換える
 		
 		Ty[MetaVar]	meta_ty;
@@ -485,6 +491,7 @@ public:
 		
 		auto poly_t = g(t);
 		return Poly(tyvars, poly_t);
+	  }
 	}
 	
 	/// tを実体化する
@@ -494,7 +501,7 @@ public:
 		{
 			auto ms = new Ty[t.tvars.length];
 			foreach (ref m; ms)
-				m = Meta(newmetavar());
+				m = Meta();
 			//debugout(" instantiate t.tvars = [%s]", t.tvars);
 			//debugout(" instantiate ms = [%s]", ms);
 			return subst(t.polty, makeSubstEnv(t.tvars, ms));
@@ -589,7 +596,7 @@ unittest
 	
 	{	tenv = new TypEnv();
 		t1 = tenv.Int;
-		t2 = tenv.Meta(tenv.newmetavar());
+		t2 = tenv.Meta();
 		res = tenv.unify(t1, t2);
 		assert(res);
 		assert(t2.actty is t1);
@@ -597,7 +604,7 @@ unittest
 	}
 	{	tenv = new TypEnv();
 		t1 = tenv.Arrow([tenv.Int], tenv.Int);
-		t2 = tenv.Meta(tenv.newmetavar());
+		t2 = tenv.Meta();
 		res = tenv.unify(t1, t2);
 		assert(res);
 		assert(t2.actty is t1);
@@ -607,7 +614,7 @@ unittest
 		Ty al1, ar1;
 		Ty al2, ar2;
 		t1 = tenv.Arrow([al1=tenv.Int],  ar1=tenv.Int);
-		t2 = tenv.Arrow([al2=tenv.Meta(tenv.newmetavar())], ar2=tenv.Meta(tenv.newmetavar()));
+		t2 = tenv.Arrow([al2=tenv.Meta()], ar2=tenv.Meta());
 		res = tenv.unify(t1, t2);
 		assert(res);
 		assert(al2.actty is al1);
