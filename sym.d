@@ -1,6 +1,5 @@
 ﻿module sym;
 
-public import lex;
 import std.conv;
 import xtk.format : format;
 

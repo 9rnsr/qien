@@ -1,21 +1,10 @@
 ﻿module lex;
 
-//import sym;
-//import file.peek;
-//import std.exception;
-
-
-/+/// 
-Toknizer toknize(string fname)
-{
-	return new Toknizer(fname);
-	
-}+/
-
 private import xtk.device;
 private import xtk.range;
 private import std.typecons, std.typetuple;
 private import std.ctype : isalpha, isalnum, isdigit, isxdigit, tolower;
+
 private bool isbdigit(dchar c)	{ return c=='0' || c=='1'; }
 private bool isodigit(dchar c)	{ return '0'<=c && c<='7'; }
 
@@ -25,20 +14,6 @@ private import std.stdio : writefln;
 
 //debug = Lex;
 //debug = Num;
-
-/+void main(string[] args)
-{
-	if (args.length != 2)
-		return;
-	
-	auto fname = args[1];
-	
-	foreach (tok; Toknizer(fname))
-	{
-//		writefln("tok = %s", tok);
-	}
-	
-}+/
 
 struct FilePos
 {
@@ -84,17 +59,13 @@ public:
 
 private:
 public:
-	//struct Tag{ int n; alias n this; }
-	
 	Tag     tag;
 	FilePos pos;
-	union{
+	union
+	{
 		long	i;
 		double	r;
 		string	s;
-//		IntT	i;
-//		RealT	r;
-//		StrT	s;
 	}
 
 public:

@@ -4,7 +4,7 @@ import parse, typ;
 import trans;
 import frame : Fragment;
 import debugs;
-private import xtk.format : format;
+import xtk.format : format;
 import xtk.match;
 import std.typecons;
 
@@ -356,7 +356,7 @@ void findEscape(AstNode n, uint depth=0)
 				if (entry.depth < depth)
 				{
 					entry.escape = true;
-					debugout("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
+					std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
 				}
 			}
 			else
@@ -407,7 +407,7 @@ void findEscape(AstNode n, uint depth=0)
 			if (auto entry = n.sym in mapVarEsc)
 			{
 				entry.escape = true;
-				debugout("escaped %s : return depth %s", n.sym, depth);
+				std.stdio.writefln("escaped %s : return depth %s", n.sym, depth);
 			}
 		}
 	}while ((n = n.next) !is null)

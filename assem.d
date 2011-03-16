@@ -20,10 +20,6 @@ Instr[] munchProg(Fragment[] fragments)
 	foreach (f; fragments)
 	{
 		auto stms = f.p[0], frame = f.p[1];
-		
-	//	debug(machine) debugout("label to pc : %s(@%s) -> %08X",
-	//		frame.name, frame.name.num, code.length);
-		
 		instr ~= Instr.LBL(null, frame.name);
 		instr ~= frame.procEntryExit3(munch(stms));
 	}
@@ -59,13 +55,6 @@ Instr[] munch(T.Stm[] stms)
 	
 	void emit(Instr instr)
 	{
-		Instruction mi;
-		if ((Instr.OPE[&mi, $] <<= instr) ||
-			(Instr.LBL[&mi, $] <<= instr) ||
-			(Instr.MOV[&mi, $] <<= instr) )
-		{
-//			writefln("emit : %s", mi);
-		}
 		instrlist ~= instr;
 	}
 	Temp result(void delegate(Temp) gen)
@@ -237,14 +226,12 @@ Instr[] munch(T.Stm[] stms)
 				return RV;
 			},
 			T.CALL[&e, &el],{
-			//	writef("munchExp : _ = %s", exp);
-				debugout("munchExp : _ = "), debugout(exp);
+				writef("munchExp : _ = "), debugout(exp);
 				assert(0, "IR error");
 				return Temp.init;
 			},
 			_,{
-			//	writef("munchExp : _ = "), debugout(exp);
-				writef("munchExp : _ = %s", exp);
+				writef("munchExp : _ = "), debugout(exp);
 				assert(0);
 				return Temp.init;
 			}

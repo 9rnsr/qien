@@ -4,7 +4,6 @@ import sym;
 import T = tree;
 import xtk.match;
 import std.typecons, std.typetuple;
-import debugs;
 
 //debug = canon;
 
@@ -87,7 +86,8 @@ T.Stm reorder_stm(EL, BLD)(EL el_, BLD build)
 	return seq(s, callBuild(el, build));
 }
 
-private{
+private
+{
 	template isExp(E){ enum isExp = is(E == T.Exp); }
 	R callBuild(R, TE...)(T.Exp[] el, R delegate(TE) build)
 	{
@@ -186,8 +186,8 @@ T.Stm do_stm(T.Stm s)
 debug(canon)
 unittest
 {
-	writefln("unittest @ %s:%s", __FILE__, __LINE__);
-	scope(success) writefln("unittest succeeded @ %s:%s", __FILE__, __LINE__);
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
 
 	auto t1 = newTemp();
 	auto t2 = newTemp();
@@ -252,9 +252,9 @@ unittest
 debug(canon)
 unittest
 {
-	writefln("unittest @ %s:%s", __FILE__, __LINE__);
-	scope(success) writefln("unittest succeeded @ %s:%s", __FILE__, __LINE__);
-	
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+
 	Stm s1_;	Stm s1 = LABEL(newLabel());
 	Stm s2_;	Stm s2 = LABEL(newLabel());
 	Exp e1_;	Exp e1 = NAME(newLabel());

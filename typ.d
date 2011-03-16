@@ -1,7 +1,7 @@
 ﻿module typ;
 
 import std.algorithm, std.typecons;
-import debugs;
+import xtk.format : format;
 
 
 alias ulong id_t;
@@ -375,7 +375,7 @@ public:
 				}
 				else if ((t2 == TyTag.META) && (t1.mvnum == t2.mvnum))
 				{
-				//	debugout("  t1=%s#%s, t2=%s#%s", t1.mvnum, t1, t2.mvnum, t2);
+					//std.stdio.writefln("  t1=%s#%s, t2=%s#%s", t1.mvnum, t1, t2.mvnum, t2);
 					return true;
 				}
 				else if (t1 in t2)
@@ -446,15 +446,15 @@ public:
 			final switch (t.tag)
 			{
 			case TyTag.META:
-				//debugout(" %s", t);
+				//std.stdio.writefln(" %s", t);
 				if (t.actty)
 				{
-					//debugout(" ->actty = %s", t.actty);
+					//std.stdio.writefln(" ->actty = %s", t.actty);
 					return g(t.actty);
 				}
 				else if (auto pt = t.mvnum in meta_ty)
 				{
-					//debugout(" ->*pt = %s", *pt);
+					//std.stdio.writefln(" ->*pt = %s", *pt);
 					return *pt;
 				}
 				else
@@ -464,7 +464,7 @@ public:
 					tyvars ~= v;
 					auto ty = Var(v);
 					meta_ty[t.mvnum] = ty;
-					//debugout(" ->newtyvar = %s", ty);
+					//std.stdio.writefln(" ->newtyvar = %s", ty);
 					return ty;;
 				}
 			case TyTag.NIL:
@@ -476,7 +476,7 @@ public:
 				}
 				else
 				{
-					//debugout("g, App(_, ...), t=%s", t);
+					//std.stdio.writefln("g, App(_, ...), t=%s", t);
 					foreach (ref a; t.targs)
 						a = g(a);
 					return t;
@@ -502,8 +502,8 @@ public:
 			auto ms = new Ty[t.tvars.length];
 			foreach (ref m; ms)
 				m = Meta();
-			//debugout(" instantiate t.tvars = [%s]", t.tvars);
-			//debugout(" instantiate ms = [%s]", ms);
+			//std.stdio.writefln(" instantiate t.tvars = [%s]", t.tvars);
+			//std.stdio.writefln(" instantiate ms = [%s]", ms);
 			return subst(t.polty, makeSubstEnv(t.tvars, ms));
 		}
 		else
@@ -587,9 +587,11 @@ Tuple!(T, U)[] zip(T,U)(T[] t, U[] u)
 
 
 
-//void main(){
 unittest
 {
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+
 	bool res;
 	TypEnv tenv;
 	Ty t1, t2;
@@ -600,7 +602,8 @@ unittest
 		res = tenv.unify(t1, t2);
 		assert(res);
 		assert(t2.actty is t1);
-		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
+		assert(tenv.expand(t1).toString == tenv.expand(t2).toString,
+			format("%s != %s", tenv.expand(t1).toString, tenv.expand(t2).toString));
 	}
 	{	tenv = new TypEnv();
 		t1 = tenv.Arrow([tenv.Int], tenv.Int);
@@ -608,7 +611,8 @@ unittest
 		res = tenv.unify(t1, t2);
 		assert(res);
 		assert(t2.actty is t1);
-		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
+		assert(tenv.expand(t1).toString == tenv.expand(t2).toString,
+			format("%s != %s", tenv.expand(t1).toString, tenv.expand(t2).toString));
 	}
 	{	tenv = new TypEnv();
 		Ty al1, ar1;
@@ -619,7 +623,8 @@ unittest
 		assert(res);
 		assert(al2.actty is al1);
 		assert(ar2.actty is ar1);
-		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
+		assert(tenv.expand(t1).toString == tenv.expand(t2).toString,
+			format("%s != %s", tenv.expand(t1).toString, tenv.expand(t2).toString));
 	}
 /+	{	tenv = new TypEnv();
 		auto xv = tenv.new_tyvars(1);
@@ -630,8 +635,6 @@ unittest
 		assert(res);
 	//	assert(al2.actty is al1);
 	//	assert(ar2.actty is ar1);
-		debugout("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
+		std.stdio.writefln("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}+/
-	
-	debugout("test ok");
 }
