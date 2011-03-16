@@ -74,7 +74,7 @@ int run_test(string dir = "test")
 			
 			try{
 				auto rv = run_program(`test\` ~ fname);
-				old_stdout.writefln("%s(%s)", rv, cast(long)rv);
+				old_stdout.writefln("%s", cast(long)rv);
 			}catch(Throwable e){
 				writefln("%s", e);
 				old_stdout.writefln("failed : %s", e);
