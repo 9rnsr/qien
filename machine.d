@@ -469,9 +469,9 @@ public:
 	{
 		enum GenInstrInterp = mixin(expand!q{
 			case InstrOp.$name:
+				enum chg = DefInstr.$name.chg;
 			  debug(machine)
 			  {
-				enum chg = DefInstr.$name.chg;
 				auto chg2 = chg;
 				auto pc_ = pc;
 				std.stdio.writefln("%08X : %-6s%s", instr_pc, "$name", ${ mixin("DefInstr.$name.str") });
