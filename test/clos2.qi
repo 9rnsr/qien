@@ -3,5 +3,5 @@ fun f = (x){
 	fun g = (y){ x + y + h(y) }
 	g
 }
-var a = f(10)
-a(20)
+var a = f(15)
+a(5)
