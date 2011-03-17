@@ -100,10 +100,31 @@ class Ty
 		return false;
 	}
 	
+	/// Do not include Meta/Var.
 	@property bool isInferred()
 	{
 		auto aty = actualType;
-		return (aty.tag != TyTag.VAR || aty.tag != TyTag.META);
+		final switch (aty.tag) with(TyTag)
+		{
+		case NIL:	return true;
+		case APP:	return reduce!"a && b"(true, map!"a.isInferred"(aty.targs));
+		case VAR:	return false;
+		case POLY:	return aty.tvars.length == 0 && aty.polty.isInferred;
+		case META:	return false;
+		}
+	}
+	/// Do not include Var
+	@property bool isInstantiated()
+	{
+		auto aty = actualType;
+		final switch (aty.tag) with(TyTag)
+		{
+		case NIL:	return true;
+		case APP:	return reduce!"a && b"(true, map!"a.isInstantiated"(aty.targs));
+		case VAR:	return false;
+		case POLY:	return aty.tvars.length == 0 && aty.polty.isInstantiated;
+		case META:	return false;
+		}
 	}
 	
 	@property bool isFunction()
@@ -145,7 +166,7 @@ class Ty
 private:
 	Ty actualType()
 	{
-		return (tag == TyTag.META && actty) ? actty : this;
+		return (tag == TyTag.META && actty) ? actty.actualType : this;
 	}
 }
 
@@ -430,7 +451,7 @@ public:
 	/// tを汎化する
 	Ty generalize(Ty t)
 	{
-	  version (all)	// TODO
+	  version (none)	// TODO
 	  {
 		return Poly([], t);
 	  }
@@ -438,34 +459,30 @@ public:
 	  {
 		// tの構造を書き換える
 		
-		Ty[MetaVar]	meta_ty;
+		Ty[MetaVar]	meta2var;	// Meta(num) -> Var(n)
 		TyVar[]		tyvars;
 		
 		Ty g(Ty t)
 		{
+			t = t.actualType;	// get
+			
 			final switch (t.tag)
 			{
 			case TyTag.META:
 				//std.stdio.writefln(" %s", t);
-				if (t.actty)
-				{
-					//std.stdio.writefln(" ->actty = %s", t.actty);
-					return g(t.actty);
-				}
-				else if (auto pt = t.mvnum in meta_ty)
+				if (auto pt = t.mvnum in meta2var)
 				{
 					//std.stdio.writefln(" ->*pt = %s", *pt);
 					return *pt;
 				}
 				else
 				{
-					assert(0, "Cannot instantiate polymorphic functions yet.");
 					auto v = newtyvar();
 					tyvars ~= v;
 					auto ty = Var(v);
-					meta_ty[t.mvnum] = ty;
+					meta2var[t.mvnum] = ty;
 					//std.stdio.writefln(" ->newtyvar = %s", ty);
-					return ty;;
+					return ty;
 				}
 			case TyTag.NIL:
 				return Nil;
@@ -637,4 +654,14 @@ unittest
 	//	assert(ar2.actty is ar1);
 		std.stdio.writefln("t1 = %s, t2 = %s", tenv.expand(t1), tenv.expand(t2));
 	}+/
+}
+unittest
+{
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+
+	{
+		auto tenv = new TypEnv();
+		assert(tenv.Int.isInstantiated);
+	}
 }

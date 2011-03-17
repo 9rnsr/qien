@@ -17,8 +17,9 @@ private import std.stdio : writefln;
 
 struct FilePos
 {
-	ulong line;
-	ulong column;
+	string	file;
+	ulong	line;
+	ulong	column;
 	
 	int opCmp(ref const(FilePos) rhs)
 	{
@@ -35,6 +36,11 @@ struct FilePos
 			return -1;
 		else
 			return +1;
+	}
+	
+	string toString() const
+	{
+		return format("%s(%s:%s)", file, line+1, column+1);
 	}
 }
 
@@ -139,6 +145,7 @@ private:
 	alias typeof(
 		(){ return zip(iota, lined!(const(char)[])(Sourced!File("", "r"))); }()
 	) Input;
+	string fname;
 	Input input;
 	const(char)[] line;
 	ulong ln, col;
@@ -146,8 +153,9 @@ private:
 	bool eof;
 
 public:
-	this(string fname)
+	this(string name)
 	{
+		fname = name;
 		input = zip(iota, lined!(const(char)[])(Sourced!File(fname, "r")));
 		ln = col = 0;
 		eof = input.empty;
@@ -161,7 +169,7 @@ public:
 		else
 		{
 			token.tag = Token.EOF;
-			token.pos = FilePos(ln, col);
+			token.pos = FilePos(fname, ln, col);
 		}
 	}
 	
@@ -199,12 +207,12 @@ public:
 			if (input.empty)
 			{
 				token.tag = Token.EOF;
-				token.pos = FilePos(ln, col);
+				token.pos = FilePos(fname, ln, col);
 			}
 			else
 			{
 				token.tag = Token.NEWLINE;
-				token.pos = FilePos(ln, col);
+				token.pos = FilePos(fname, ln, col);
 				
 				input.popFront();
 				ln   = input.front[0];
@@ -234,7 +242,7 @@ public:
 				error("parse error");
 			}
 			
-			token.pos = FilePos(ln, col);
+			token.pos = FilePos(fname, ln, col);
 			col += linelen - line.length;
 		}
 		
@@ -255,7 +263,7 @@ private:
 			}
 		}
 		
-		throw new ToknizeException(FilePos(ln, col), msg);
+		throw new ToknizeException(FilePos(fname, ln, col), msg);
 	}
 }
 

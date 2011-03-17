@@ -1,6 +1,6 @@
 var a = 10
 fun f = (x){
-	x + a
+	x + a + 10
 }
 var b = 20
 fun g = (){

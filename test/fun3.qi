@@ -1,5 +1,5 @@
 fun f = (dg){
-	dg(10) + 0
+	dg(30) + 0
 }
 fun dg = (n){ n + 0 }
 

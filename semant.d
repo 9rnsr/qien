@@ -46,17 +46,21 @@ Fragment[] transProg(AstNode n)
 private void delegate(Level, Ex) procEntryExit;
 
 /// 
-void error(ref FilePos pos, string msg)
+Throwable error(ref FilePos pos, string msg)
 {
+//	static class SemantError : Error
 	static class SemantException : Exception
 	{
 		this(ref FilePos fpos, string msg)
 		{
-			super(format("SemanticError%s: %s", fpos, msg));
+			super(format("%s SemantError : %s", fpos, msg));
+		}
+		override string toString()
+		{
+			return msg;
 		}
 	}
-
-	throw new SemantException(pos, msg);
+	return new SemantException(pos, msg);
 }
 
 Tuple!(uint, "depth", bool, "escape")[Symbol] mapVarEsc;
@@ -122,19 +126,20 @@ class VarEnv
 
 /// 
 Tuple!(Ty, Ex) transExp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
-out(r){ assert(r.field[1] !is null); }body
+out(r){ assert(!(cast(Ty)r.field[0]).isInstantiated || r.field[1] !is null); }body
 {
 	const unify = &tenv.unify;	//短縮名
 	
 	Tuple!(Ty, Ex) trexp(Ty type, AstNode n)
 	{
-		Ty typecheck(Ty ty){
+		Ty typecheck(Ty ty)
+		{
 			if (type is null)
 				return ty;
 			else if (unify(ty, type))
 				return ty;
 			else
-				throw new Exception("cannot type inference");
+				throw error(n.pos, format("cannot type inference : %s and %s", ty, type));
 		}
 		
 		final switch (n.tag)
@@ -143,25 +148,25 @@ out(r){ assert(r.field[1] !is null); }body
 			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
 		
 		case AstTag.INT:
-			return tuple(tenv.Int, trans.immediate(n.i));
+			return tuple(typecheck(tenv.Int), trans.immediate(n.i));
 		
 		case AstTag.REAL:
-			return tuple(tenv.Real, trans.immediate(n.r));
+			return tuple(typecheck(tenv.Real), trans.immediate(n.r));
 		
 		case AstTag.STR:
-			return tuple(tenv.Str, Ex.init);
+			return tuple(typecheck(tenv.Str), Ex.init);
 		
 		case AstTag.IDENT:
 			if (auto entry = n.sym in venv)
 			{
-				auto inst_t = typecheck(tenv.instantiate(entry.ty));
-				debug(semant) writefln("ident %s : %s => %s", n.sym, entry.ty, inst_t);
-				return tuple(inst_t, trans.variable(level, entry.access));
+				auto ty = typecheck(tenv.instantiate(entry.ty));
+				debug(semant) std.stdio.writefln("ident %s : %s (instantiated = %s)", n.sym, ty, ty.isInstantiated);
+				return tuple(ty,
+				             ty.isInstantiated ? trans.variable(level, entry.access)
+				                               : null);
 			}
 			else
-			{
-				error(n.pos, n.sym.name ~ " undefined");
-			}
+				throw error(n.pos, n.sym.name ~ " undefined");
 		
 		case AstTag.FUN:
 			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
@@ -169,15 +174,33 @@ out(r){ assert(r.field[1] !is null); }body
 		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(type, n.lhs);
-			tie[tr, xr] <<= trexp(type, n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);		bool isLhsInferred = tl.isInferred;
+			tie[tr, xr] <<= trexp(type, n.rhs);		bool isRhsInferred = tr.isInferred;
 			
-			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
+			//debug(semant) std.stdio.writefln("ADD            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+			//debug(semant) std.stdio.writefln("ADD isInferred = %s/%s", isLhsInferred, isRhsInferred);
+			
+			bool isLhsFixn = isLhsInferred ? unify(tl, tenv.Int) : true;
+			bool isRhsFixn = isRhsInferred ? unify(tr, tenv.Int) : true;
+			//debug(semant) std.stdio.writefln("ADD isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
+			if (isLhsFixn && isRhsFixn)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Int, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Int, n.rhs);
+				//debug(semant) std.stdio.writefln("ADD Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
 				return tuple(tenv.Int, trans.binAddInt(xl, xr));
-			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
+			}
+
+			bool isLhsFlon = isLhsInferred ? unify(tl, tenv.Real) : true;
+			bool isRhsFlon = isRhsInferred ? unify(tr, tenv.Real) : true;
+			if (isLhsFlon && isRhsFlon)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Real, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Real, n.rhs);
 				return tuple(tenv.Real, Ex.init);
-			else
-				error(n.pos, "+ mismatch types");
+			}
+			
+			throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
@@ -190,7 +213,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
 			else
-				error(n.pos, "- mismatch types");
+				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
@@ -203,7 +226,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
 			else
-				error(n.pos, "* mismatch types");
+				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
@@ -216,7 +239,7 @@ out(r){ assert(r.field[1] !is null); }body
 			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
 				return tuple(tenv.Real, Ex.init);
 			else
-				error(n.pos, "/ mismatch types");
+				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.CALL:
 			Ty tf, tr;  Ty[] ta;
@@ -228,18 +251,25 @@ out(r){ assert(r.field[1] !is null); }body
 				ta.length += 1;
 				xa.length += 1;
 				tie[ta[$-1], xa[$-1]] <<= trexp(null, arg);
+					// Each type of argumens is always inferred (May be Meta).
 			}
 			tr = type is null ? tenv.Meta() : type;
-			tie[tf, xf] <<= trexp(tenv.Arrow(ta, tr), n.lhs);
+			tf = tenv.Arrow(ta, tr);
+			tie[tf, xf] <<= trexp(tf, n.lhs);
+			debug(semant) std.stdio.writefln("call = fun = %s : %s", xf, tf);
 			tr = typecheck(tf.returnType);
-			
-			xr = trans.callFun(tf, xf, xa);
-			debug(semant) std.stdio.writefln("call tf = %s, isFunction = %s", tf, tf.isFunction);
-			debug(semant) std.stdio.writefln("     xf = %s", xf);
-			return tuple(tr, xr);
+			if (xf)
+			{
+				xr = trans.callFun(tf, xf, xa);
+				debug(semant) std.stdio.writefln("call tf = %s, isFunction = %s", tf, tf.isFunction);
+				debug(semant) std.stdio.writefln("     xf = %s", xf);
+				return tuple(tr, xr);
+			}
+			else
+				return tuple(tr, Ex.init);
 		
 		case AstTag.ASSIGN:
-			error(n.pos, "*** to do impl ****/assign");
+			throw error(n.pos, "*** to do impl ****/assign");
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
@@ -265,25 +295,25 @@ out(r){ assert(r.field[1] !is null); }body
 					debug(semant) std.stdio.writefln("fun_prm %s : %s", prm.sym, prm_typ);
 				}
 				
-				Ty tr, tf;
-				tr = fn_tenv.Meta();
-				tf = fn_tenv.Arrow(tp, tr);
+				Ty tr = fn_tenv.Meta();
+				Ty tf = fn_tenv.Arrow(tp, tr);
 				
 				Ty tb;
 				Ex xb;
 				tie[tb, xb] <<= transExp(fn_level, fn_tenv, fn_venv, tr, fn.blk);
-				if (!fn_tenv.unify(tr, tb))
-					error(n.pos, "return type mismatch in def-fun");
 				
-				auto tf2 = fn_tenv.generalize(tf);
-				// 現状、多相型は実体化できない。多相の場合はassertする
+				debug(semant) std.stdio.writefln("fun_def body : %s, fun : %s", tb, tf);
+				tf = fn_tenv.generalize(tf);
+				debug(semant) std.stdio.writefln("fun_def body : %s, fun : %s", tb, tf);
+				if (!tf.isInstantiated)
+					throw error(n.rhs.pos, "Cannot instantiate polymorphic function yet.");
 				
 				auto esc = mapVarEsc[id.sym].escape;
 				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる
-				if (!venv.add(id.sym, acc, tf2))
-					error(n.pos, id.toString ~ " is already defined");
+				if (!venv.add(id.sym, acc, tf))
+					throw error(n.pos, id.toString ~ " is already defined");
 				
-				debug(semant) std.stdio.writefln("fun_def %s : %s => %s", id.sym, tf, tf2);
+				debug(semant) std.stdio.writefln("fun_def %s : %s", id.sym, tf);
 				
 				procEntryExit(fn_level, xb);
 				
@@ -296,7 +326,7 @@ out(r){ assert(r.field[1] !is null); }body
 				Ex ex;
 				tie[ty, ex] <<= trexp(null, n.rhs);
 				if (ty is tenv.Nil)
-					error(n.pos, "infer error...");
+					throw error(n.pos, "infer error...");
 				
 				auto esc = mapVarEsc[id.sym].escape;
 				if (ty.isFunction) esc = true;	// alocation hack?
@@ -306,9 +336,9 @@ out(r){ assert(r.field[1] !is null); }body
 					ty = tenv.generalize(ty);
 					auto acc = level.allocLocal(ty, esc);
 					if (!venv.add(id.sym, acc, ty))
-						error(n.pos, id.toString ~ " is already defined");
+						throw error(n.pos, id.toString ~ " is already defined");
 				//}
-//				debug(semant) std.stdio.writefln("var_def %s : %s", id.sym, ty);
+				//debug(semant) std.stdio.writefln("var_def %s : %s", id.sym, ty);
 				
 				//初期化式の結果を代入
 				return tuple(tenv.Unit, trans.assign(level, acc, ex));
@@ -319,17 +349,16 @@ out(r){ assert(r.field[1] !is null); }body
 	Ty ty;
 	Ex ex, x;
 	do{
-		if (n.next is null)
+		bool isLast = n.next is null;
+		
+		tie[ty, x] <<= trexp(isLast ? type : null, n);
+		if (x)
 		{
-			tie[ty, x] <<= trexp(type, n);
-			x = trans.ret(x);
+			if (isLast)
+				x = trans.ret(x);
+			debugCodeMap(level, n, x);
+			ex = trans.sequence(ex, x);
 		}
-		else
-		{
-			tie[ty, x] <<= trexp(null, n);
-		}
-		debugCodeMap(level, n, x);
-		ex = trans.sequence(ex, x);
 	}while ((n = n.next) !is null)
 
 	return tuple(ty, ex);
@@ -356,11 +385,11 @@ void findEscape(AstNode n, uint depth=0)
 				if (entry.depth < depth)
 				{
 					entry.escape = true;
-					std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
+					debug(semant) std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
 				}
 			}
 			else
-				error(n.pos, "undefined identifier " ~ n.sym.name);
+				throw error(n.pos, "undefined identifier " ~ n.sym.name);
 			break;
 		
 		case AstTag.FUN:
@@ -381,7 +410,7 @@ void findEscape(AstNode n, uint depth=0)
 			break;
 		
 		case AstTag.ASSIGN:
-			error(n.pos, "*** to do impl ****/assign");
+			throw error(n.pos, "*** to do impl ****/assign");
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
@@ -407,7 +436,7 @@ void findEscape(AstNode n, uint depth=0)
 			if (auto entry = n.sym in mapVarEsc)
 			{
 				entry.escape = true;
-				std.stdio.writefln("escaped %s : return depth %s", n.sym, depth);
+				debug(semant) std.stdio.writefln("escaped %s : return depth %s", n.sym, depth);
 			}
 		}
 	}while ((n = n.next) !is null)
