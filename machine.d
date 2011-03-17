@@ -19,7 +19,7 @@ import xtk.format;
 import xtk.meta, xtk.metastrings;
 import std.array;
 
-debug = machine;
+//debug = machine;
 
 // byte - word operations
 
@@ -522,8 +522,11 @@ public:
 	/// 
 	ulong run()
 	{
+	  debug(machine)
+	  {
 		print();
 		std.stdio.writefln("--");
+	  }
 		
 		pc = 0;
 		cp = 0;

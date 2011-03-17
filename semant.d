@@ -124,25 +124,24 @@ void findEscape(AstNode n, uint depth=0)
 	{
 		final switch (n.tag)
 		{
-		case AstTag.NOP:
-			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
+		case AstTag.NOP:	assert(0);	//型検査の対象とならないdummy nodeなのでここに来るのはerror
 		
 		case AstTag.INT:
 		case AstTag.REAL:
-		case AstTag.STR:
-			break;
+		case AstTag.STR:	break;
 		
 		case AstTag.IDENT:
 			auto entry = enforce(n.sym in mapVarEsc, error(n.pos, "undefined identifier " ~ n.sym.name));
 			if (entry.depth < depth)
-			{
 				entry.escape = true;
-				debug(semant) std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
-			}
+			debug(semant) if (entry.escape) std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
 			break;
 		
 		case AstTag.FUN:
-			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
+			foreach (prm; n.prm[])
+				mapVarEsc[prm.sym] = tuple(depth+1, false);
+			findEscape(n.blk, depth+1);
+			break;
 		
 		case AstTag.ADD:
 		case AstTag.SUB:
@@ -163,19 +162,12 @@ void findEscape(AstNode n, uint depth=0)
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
-			if (n.rhs.tag == AstTag.FUN)
-			{
-				auto fn = n.rhs;
-				
-				mapVarVal[id.sym] = [fn];
-				
-				mapVarEsc[id.sym] = tuple(depth, false);
-				foreach (prm; fn.prm[])
-					mapVarEsc[prm.sym] = tuple(depth+1, false);
-				findEscape(fn.blk, depth+1);
-			}
-			else
-				mapVarEsc[id.sym] = tuple(depth, false);
+			auto val = n.rhs;
+			
+			traverse(val, depth);
+			
+			mapVarVal[id.sym] = [val];
+			mapVarEsc[id.sym] = tuple(depth, false);
 			break;
 		}
 	}
@@ -224,12 +216,42 @@ Ty transTyp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
 			return ty;
 		
 		case AstTag.FUN:
-			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
+			auto fn_level = trans.newLevel(level, newLabel());
+			auto fn_tenv  = new TypEnv(tenv);
+			auto fn_venv  = new VarEnv(venv);
+			
+			fun_map[n] = tuple(fn_level, fn_tenv, fn_venv);
+			
+			Ty[] tp;
+			foreach (prm; n.prm[])
+			{
+				auto prm_typ = fn_tenv.Meta();
+				auto prm_esc = mapVarEsc[prm.sym].escape;
+				auto prm_acc = fn_level.allocLocal(prm_typ, true/*prm_esc*/);	// 仮引数は常にFrameに割り当て
+				
+				tp ~= prm_typ;
+				fn_venv.add(prm.sym, prm_acc, prm_typ);
+				
+				debug(semant) std.stdio.writefln("prm %s : %s", prm.sym, prm_typ);
+			}
+			
+			Ty tr = fn_tenv.Meta();
+			Ty tf = fn_tenv.Arrow(tp, tr);
+			Ty tb = transTyp(fn_level, fn_tenv, fn_venv, tr, n.blk);
+			
+			debug(semant) std.stdio.writefln("fun : %s", tb);
+			tf = fn_tenv.generalize(tf);
+			debug(semant) std.stdio.writefln("fun : %s", tb);
+			if (!tf.isInstantiated)
+				throw error(n.rhs.pos, "Cannot instantiate polymorphic function yet.");
+			
+			return typecheck(tf);
 		
-		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
-		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
-		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
-		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
+		// FUTURE: built-in function CALLに統一
+		case AstTag.ADD:
+		case AstTag.SUB:
+		case AstTag.MUL:
+		case AstTag.DIV:
 			auto tl = trtyp(type, n.lhs);	bool isLhsInferred = tl.isInferred;
 			auto tr = trtyp(type, n.rhs);	bool isRhsInferred = tr.isInferred;
 			
@@ -246,7 +268,7 @@ Ty transTyp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
 				debug(semant) std.stdio.writefln("BIN Fixnum ope = lhs : %s, rhs : %s", tl, tr);
 				return tenv.Int;
 			}
-
+			
 			bool isLhsFlon = isLhsInferred ? unify(tl, tenv.Real) : true;
 			bool isRhsFlon = isRhsInferred ? unify(tr, tenv.Real) : true;
 			if (isLhsFlon && isRhsFlon)
@@ -283,65 +305,15 @@ Ty transTyp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
-			if (n.rhs.tag == AstTag.FUN)
-			{
-				auto fn = n.rhs;
-				auto fn_level = trans.newLevel(level, newLabel());
-				auto fn_tenv  = new TypEnv(tenv);
-				auto fn_venv  = new VarEnv(venv);
-				
-				fun_map[fn] = tuple(fn_level, fn_tenv, fn_venv);
-				
-				Ty[] tp;
-				foreach (prm; fn.prm[])
-				{
-					auto prm_typ = fn_tenv.Meta();
-					auto prm_esc = mapVarEsc[prm.sym].escape;
-					auto prm_acc = fn_level.allocLocal(prm_typ, true/*prm_esc*/);	// 仮引数は常にFrameに割り当て
-					
-					tp ~= prm_typ;
-					fn_venv.add(prm.sym, prm_acc, prm_typ);
-					
-					debug(semant) std.stdio.writefln("fun_prm %s : %s", prm.sym, prm_typ);
-				}
-				
-				Ty tr = fn_tenv.Meta();
-				Ty tf = fn_tenv.Arrow(tp, tr);
-				
-				// CHG: 関数本体より先にaccessを確保し、再帰可能とする
-				auto esc = mapVarEsc[id.sym].escape;
-				auto acc = level.allocLocal(tf, true);	// 関数値はsize>1wordなのでSlotは常にescapeさせる	// NO NEED?
-				enforce(venv.add(id.sym, acc, tf), error(n.pos, id.toString ~ " is already defined"));
-				
-				Ty tb = transTyp(fn_level, fn_tenv, fn_venv, tr, fn.blk);
-				
-				debug(semant) std.stdio.writefln("fun_def body : %s, fun : %s", tb, tf);
-				tf = fn_tenv.generalize(tf);
-				debug(semant) std.stdio.writefln("fun_def body : %s, fun : %s", tb, tf);
-				if (!tf.isInstantiated)
-					throw error(n.rhs.pos, "Cannot instantiate polymorphic function yet.");
-				
-				debug(semant) std.stdio.writefln("fun_def %s : %s", id.sym, tf);
-				
-				return typecheck(tenv.Unit);
-			}
-			else
-			{
-				Ty ty = trtyp(null, n.rhs);
-				
-				auto esc = mapVarEsc[id.sym].escape;
-				if (ty.isFunction) esc = true;	// alocation hack?	// NO NEED?
-				
-				//if (used(id) )	// TODO
-				//{
-					ty = tenv.generalize(ty);
-					auto acc = level.allocLocal(ty, esc);
-					enforce(venv.add(id.sym, acc, ty), error(n.pos, id.toString ~ " is already defined"));
-				//}
-				//debug(semant) std.stdio.writefln("var_def %s : %s", id.sym, ty);
-				
-				return typecheck(tenv.Unit);
-			}
+			auto tv = trtyp(null, n.rhs);
+			
+			// TODO: 束縛の定義が値のtraverseの後なので、関数値の場合再帰ができない問題がある
+			auto esc = mapVarEsc[id.sym].escape;
+			auto acc = level.allocLocal(tv, esc);
+			enforce(venv.add(id.sym, acc, tv), error(n.pos, id.toString ~ " is already defined"));
+			
+			debug(semant) std.stdio.writefln("def %s : %s", id.sym, tv);
+			return typecheck(tenv.Unit);
 		}
 	}
 	

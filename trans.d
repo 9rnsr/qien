@@ -125,7 +125,7 @@ private:
 			
 			//std.stdio.writefln("Access.slots : size = %s, escape = %s", size, escape);
 			
-			//if (size >= 2) escape = true;	// 関数値はsize>1wordなのでSlotは常にescapeさせる
+			if (size >= 2) escape = true;	// 関数値はsize>1wordなのでSlotは常にescapeさせる
 			
 			// 複数ワードの値は必ずフレーム上に配置する
 			assert(size == 1 || (size >= 2 && escape));

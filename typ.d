@@ -463,6 +463,7 @@ public:
 	/// tを汎化する
 	Ty generalize(Ty t)
 	{
+		t = t.actualType;
 	  version (none)	// TODO
 	  {
 		return Poly([], t);
@@ -526,6 +527,7 @@ public:
 	/// tを実体化する
 	Ty instantiate(Ty t)
 	{
+		t = t.actualType;
 		if (t.tag == TyTag.POLY)
 		{
 			auto ms = new Ty[t.tvars.length];
@@ -533,6 +535,7 @@ public:
 				m = Meta();
 			//std.stdio.writefln(" instantiate t.tvars = [%s]", t.tvars);
 			//std.stdio.writefln(" instantiate ms = [%s]", ms);
+			//std.stdio.writefln(" instantiate polty = [%s]", t.polty);
 			return subst(t.polty, makeSubstEnv(t.tvars, ms));
 		}
 		else
@@ -677,3 +680,17 @@ unittest
 		assert(tenv.Int.isInstantiated);
 	}
 }
+/+unittest
+{
+	scope(success) std.stdio.writefln("unittest@%s:%s passed", __FILE__, __LINE__);
+	scope(failure) std.stdio.writefln("unittest@%s:%s failed", __FILE__, __LINE__);
+
+	std.stdio.writefln("instantiate test:");
+	{
+		auto tenv = new TypEnv();
+		auto gt = tenv.generalize(tenv.Arrow([tenv.Int], tenv.Int));
+		std.stdio.writefln("gt = %s", gt);
+		auto it = tenv.instantiate(gt);
+		std.stdio.writefln("it = %s", it);
+	}
+}+/
