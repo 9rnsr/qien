@@ -13,8 +13,9 @@ import debugs;
  * 
  */
 
-void initialize()
+void initialize(ref Fragment[] frag)
 {
+	Level.pFragments = &frag;
 	frame.initialize();
 }
 
@@ -24,6 +25,9 @@ void initialize()
  */
 class Level
 {
+private:
+	static Fragment[]* pFragments;
+
 private:
 	Level		parent;
 	Frame		frame;
@@ -59,10 +63,15 @@ public:
 		acclist ~= acc;
 		return acc;
 	}
-	void allocLocal()
+
+	void procEntry()
 	{
 		foreach (acc; acclist)
 			acc.allocSlot();
+	}
+	void procExit(Ex ex)
+	{
+		*pFragments ~= procEntryExit(this, ex);
 	}
 }
 
@@ -106,7 +115,7 @@ public:
 	{
 		return slotlist.length == 0 ? "not translated" : slotlist[0].toString;
 	}
-//private:
+private:
 	void allocSlot()
 	{
 		if (slotlist.length == 0)
@@ -214,6 +223,12 @@ Ex immediate(Level fn_level, bool escape)
 {
 	return new Ex(
 		T.FUNC(fn_level.frame.name, escape));	// 関数本体のラベル+escapeの組＝関数値
+}
+
+Access define(Access acc)
+{
+	acc.allocSlot();
+	return acc;
 }
 
 /**
