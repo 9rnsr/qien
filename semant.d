@@ -110,8 +110,88 @@ class VarEnv
 private
 {
 	Tuple!(uint, "depth", bool, "escape")[Symbol] mapVarEsc;
+	
+	AstNode[][Symbol] mapVarVal;
+	bool[AstNode] mapValEsc;	// 現状、関数値のみ登録している
+	
 	Tuple!(Level, "level", TypEnv, "tenv", VarEnv, "venv")[AstNode] fun_map;
 	Ty[AstNode] callNodeType;
+}
+
+void findEscape(AstNode n, uint depth=0)
+{
+	void traverse(AstNode n, uint depth)
+	{
+		final switch (n.tag)
+		{
+		case AstTag.NOP:
+			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
+		
+		case AstTag.INT:
+		case AstTag.REAL:
+		case AstTag.STR:
+			break;
+		
+		case AstTag.IDENT:
+			auto entry = enforce(n.sym in mapVarEsc, error(n.pos, "undefined identifier " ~ n.sym.name));
+			if (entry.depth < depth)
+			{
+				entry.escape = true;
+				debug(semant) std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
+			}
+			break;
+		
+		case AstTag.FUN:
+			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
+		
+		case AstTag.ADD:
+		case AstTag.SUB:
+		case AstTag.MUL:
+		case AstTag.DIV:
+			traverse(n.lhs, depth);
+			traverse(n.rhs, depth);
+			break;
+		
+		case AstTag.CALL:
+			traverse(n.lhs, depth);
+			foreach (arg ; n.rhs[])
+				traverse(arg, depth);
+			break;
+		
+		case AstTag.ASSIGN:
+			throw error(n.pos, "*** to do impl ****/assign");
+		
+		case AstTag.DEF:
+			auto id = n.lhs;
+			if (n.rhs.tag == AstTag.FUN)
+			{
+				auto fn = n.rhs;
+				
+				mapVarVal[id.sym] = [fn];
+				
+				mapVarEsc[id.sym] = tuple(depth, false);
+				foreach (prm; fn.prm[])
+					mapVarEsc[prm.sym] = tuple(depth+1, false);
+				findEscape(fn.blk, depth+1);
+			}
+			else
+				mapVarEsc[id.sym] = tuple(depth, false);
+			break;
+		}
+	}
+
+	do{
+		traverse(n, depth);
+		if (n.next is null && n.tag == AstTag.IDENT)
+		{
+			if (auto values = n.sym in mapVarVal)
+			{
+				foreach (val; *values)
+					mapValEsc[val] = true;
+				debug(semant) std.stdio.writefln("escaped %s : return depth %s", n.sym, depth);
+			}
+		}
+	}while ((n = n.next) !is null)
 }
 
 Ty transTyp(Level level, TypEnv tenv, VarEnv venv, Ty type, AstNode n)
@@ -289,31 +369,20 @@ Ex transExp(Level level, TypEnv tenv, VarEnv venv, AstNode n)
 		case AstTag.IDENT:	return trans.variable(level, (n.sym in venv).access);
 		
 		case AstTag.FUN:
-			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
+			auto fn = fun_map[n];	// transTyでfnに関連付けておいて、ここで取り出す
+			
+			fn.level.procEntry();	// 仮引数のSlotを確保させる
+			Ex xb = transExp(fn.level, fn.tenv, fn.venv, n.blk);
+			fn.level.procExit(xb);
+			
+			auto esc = (n in mapValEsc) !is null;
+			return trans.immediate(fn.level, esc);
 		
-		case AstTag.ADD:	// FUTURE: built-in function CALLに統一
-		//	if (type == tenv.Int)
-				return trans.binAddInt(trexp(n.lhs), trexp(n.rhs));
-		//	else
-		//		return Ex.init;
-		
-		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
-		//	if (type == tenv.Int)
-				return trans.binSubInt(trexp(n.lhs), trexp(n.rhs));
-		//	else
-		//		return Ex.init;
-		
-		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
-		//	if (type == tenv.Int)
-				return trans.binMulInt(trexp(n.lhs), trexp(n.rhs));
-		//	else
-		//		return Ex.init;
-		
-		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
-		//	if (type == tenv.Int)
-				return trans.binDivInt(trexp(n.lhs), trexp(n.rhs));
-		//	else
-		//		return Ex.init;
+		// FUTURE: built-in function CALLに統一
+		case AstTag.ADD:	return trans.binAddInt(trexp(n.lhs), trexp(n.rhs));
+		case AstTag.SUB:	return trans.binSubInt(trexp(n.lhs), trexp(n.rhs));
+		case AstTag.MUL:	return trans.binMulInt(trexp(n.lhs), trexp(n.rhs));
+		case AstTag.DIV:	return trans.binDivInt(trexp(n.lhs), trexp(n.rhs));
 		
 		case AstTag.CALL:
 			debug(semant) std.stdio.writefln("call ----");
@@ -329,28 +398,8 @@ Ex transExp(Level level, TypEnv tenv, VarEnv venv, AstNode n)
 		
 		case AstTag.DEF:
 			auto id = n.lhs;
-			if (n.rhs.tag == AstTag.FUN)
-			{
-				auto fn = n.rhs;
-				Level  fn_level;
-				TypEnv fn_tenv;
-				VarEnv fn_venv;
-				// transTyでfnに関連付けておいて、ここで取り出す
-				tie[fn_level, fn_tenv, fn_venv] <<= fun_map[fn];
-				
-				fn_level.procEntry();	// 仮引数のSlotを確保させる
-				Ex xb = transExp(fn_level, fn_tenv, fn_venv, fn.blk);
-				fn_level.procExit(xb);
-				
-				auto esc = mapVarEsc[id.sym].escape;
-				auto acc = trans.define((id.sym in venv).access);
-				return trans.assign(level, acc, trans.immediate(fn_level, esc));
-			}
-			else
-			{
-				auto acc = trans.define((id.sym in venv).access);
-				return trans.assign(level, acc, trexp(n.rhs));
-			}
+			auto acc = trans.define((id.sym in venv).access);
+			return trans.assign(level, acc, trexp(n.rhs));
 		}
 	}
 	
@@ -365,84 +414,6 @@ Ex transExp(Level level, TypEnv tenv, VarEnv venv, AstNode n)
 	}while ((n = n.next) !is null)
 
 	return ex;
-}
-
-
-void findEscape(AstNode n, uint depth=0)
-{
-	void traverse(AstNode n, uint depth)
-	{
-		final switch (n.tag)
-		{
-		case AstTag.NOP:
-			assert(0);		//型検査の対象とならないdummy nodeなのでここに来るのはerror
-		
-		case AstTag.INT:
-		case AstTag.REAL:
-		case AstTag.STR:
-			break;
-		
-		case AstTag.IDENT:
-			if (auto entry = n.sym in mapVarEsc)
-			{
-				if (entry.depth < depth)
-				{
-					entry.escape = true;
-					debug(semant) std.stdio.writefln("escaped %s : depth %s < %s", n.sym, entry.depth, depth);
-				}
-			}
-			else
-				throw error(n.pos, "undefined identifier " ~ n.sym.name);
-			break;
-		
-		case AstTag.FUN:
-			assert(0);		//現状、関数リテラルは許可していないのでここには来ない
-		
-		case AstTag.ADD:
-		case AstTag.SUB:
-		case AstTag.MUL:
-		case AstTag.DIV:
-			traverse(n.lhs, depth);
-			traverse(n.rhs, depth);
-			break;
-		
-		case AstTag.CALL:
-			traverse(n.lhs, depth);
-			foreach (arg ; n.rhs[])
-				traverse(arg, depth);
-			break;
-		
-		case AstTag.ASSIGN:
-			throw error(n.pos, "*** to do impl ****/assign");
-		
-		case AstTag.DEF:
-			auto id = n.lhs;
-			if (n.rhs.tag == AstTag.FUN)
-			{
-				auto fn = n.rhs;
-				
-				mapVarEsc[id.sym] = tuple(depth, false);
-				foreach (prm; fn.prm[])
-					mapVarEsc[prm.sym] = tuple(depth+1, false);
-				findEscape(fn.blk, depth+1);
-			}
-			else
-				mapVarEsc[id.sym] = tuple(depth, false);
-			break;
-		}
-	}
-
-	do{
-		traverse(n, depth);
-		if (n.next is null && n.tag == AstTag.IDENT)
-		{
-			if (auto entry = n.sym in mapVarEsc)
-			{
-				entry.escape = true;
-				debug(semant) std.stdio.writefln("escaped %s : return depth %s", n.sym, depth);
-			}
-		}
-	}while ((n = n.next) !is null)
 }
 
 
