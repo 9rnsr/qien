@@ -179,6 +179,11 @@ private:
 			tmp = newTemp();
 		}
 	}
+public:
+	string toString()
+	{
+		return format("Slot : %s", IN_FRAME ? to!string(ofs) : tmp.toString);
+	}
 }
 
 /**

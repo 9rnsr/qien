@@ -59,6 +59,11 @@ public:
 		acclist ~= acc;
 		return acc;
 	}
+	void allocLocal()
+	{
+		foreach (acc; acclist)
+			acc.allocSlot();
+	}
 }
 
 /// 
@@ -89,6 +94,21 @@ private:
 
 	Slot[] slots()
 	{
+		return slotlist;
+	}
+public:
+	size_t size()
+	{
+		return slots.length;
+	}
+	
+	string toString()
+	{
+		return slotlist.length == 0 ? "not translated" : slotlist[0].toString;
+	}
+//private:
+	void allocSlot()
+	{
 		if (slotlist.length == 0)
 		{
 			// スロットが必要＝Tree作成段階にある＝型推論済み
@@ -104,12 +124,6 @@ private:
 			foreach (_; 0 .. size)
 				slotlist ~= level.frame.allocLocal(escape);
 		}
-		return slotlist;
-	}
-public:
-	size_t size()
-	{
-		return slots.length;
 	}
 }
 
@@ -222,11 +236,13 @@ Ex variable(Level level, Access access)
 /**
  * 関数呼び出しのIRに変換する
  */
-Ex callFun(Ty tyfun, Ex fun, Ex[] args)
-in { assert(tyfun.isFunction); }
-body
+//Ex callFun(Ty tyfun, Ex fun, Ex[] args)
+//in { assert(tyfun.isFunction); }
+//body
+Ex callFun(Ty tyret, Ex fun, Ex[] args)
 {
-	auto size = getTypeSize(tyfun.returnType);
+//	auto size = getTypeSize(tyfun.returnType);
+	auto size = getTypeSize(tyret);
 	if (size >= 2)
 		return new Ex(T.MEM(T.CALL(unEx(fun), array(map!unEx(args))), size));
 	else
