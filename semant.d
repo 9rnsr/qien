@@ -177,17 +177,17 @@ out(r){ assert(!(cast(Ty)r.field[0]).isInstantiated || r.field[1] !is null); }bo
 			tie[tl, xl] <<= trexp(type, n.lhs);		bool isLhsInferred = tl.isInferred;
 			tie[tr, xr] <<= trexp(type, n.rhs);		bool isRhsInferred = tr.isInferred;
 			
-			//debug(semant) std.stdio.writefln("ADD            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
-			//debug(semant) std.stdio.writefln("ADD isInferred = %s/%s", isLhsInferred, isRhsInferred);
+			debug(semant) std.stdio.writefln("ADD            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+			debug(semant) std.stdio.writefln("ADD isInferred = %s/%s", isLhsInferred, isRhsInferred);
 			
 			bool isLhsFixn = isLhsInferred ? unify(tl, tenv.Int) : true;
 			bool isRhsFixn = isRhsInferred ? unify(tr, tenv.Int) : true;
-			//debug(semant) std.stdio.writefln("ADD isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
+			debug(semant) std.stdio.writefln("ADD isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
 			if (isLhsFixn && isRhsFixn)
 			{
 				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Int, n.lhs);
 				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Int, n.rhs);
-				//debug(semant) std.stdio.writefln("ADD Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+				debug(semant) std.stdio.writefln("ADD Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
 				return tuple(tenv.Int, trans.binAddInt(xl, xr));
 			}
 
@@ -205,45 +205,100 @@ out(r){ assert(!(cast(Ty)r.field[0]).isInstantiated || r.field[1] !is null); }bo
 		case AstTag.SUB:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(type, n.lhs);
-			tie[tr, xr] <<= trexp(type, n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);		bool isLhsInferred = tl.isInferred;
+			tie[tr, xr] <<= trexp(type, n.rhs);		bool isRhsInferred = tr.isInferred;
 			
-			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
+			debug(semant) std.stdio.writefln("SUB            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+			debug(semant) std.stdio.writefln("SUB isInferred = %s/%s", isLhsInferred, isRhsInferred);
+			
+			bool isLhsFixn = isLhsInferred ? unify(tl, tenv.Int) : true;
+			bool isRhsFixn = isRhsInferred ? unify(tr, tenv.Int) : true;
+			debug(semant) std.stdio.writefln("SUB isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
+			if (isLhsFixn && isRhsFixn)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Int, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Int, n.rhs);
+				debug(semant) std.stdio.writefln("SUB Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
 				return tuple(tenv.Int, trans.binSubInt(xl, xr));
-			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
+			}
+
+			bool isLhsFlon = isLhsInferred ? unify(tl, tenv.Real) : true;
+			bool isRhsFlon = isRhsInferred ? unify(tr, tenv.Real) : true;
+			if (isLhsFlon && isRhsFlon)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Real, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Real, n.rhs);
 				return tuple(tenv.Real, Ex.init);
-			else
-				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
+			}
+			
+			throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.MUL:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(type, n.lhs);
-			tie[tr, xr] <<= trexp(type, n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);		bool isLhsInferred = tl.isInferred;
+			tie[tr, xr] <<= trexp(type, n.rhs);		bool isRhsInferred = tr.isInferred;
 			
-			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
+			debug(semant) std.stdio.writefln("MUL            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+			debug(semant) std.stdio.writefln("MUL isInferred = %s/%s", isLhsInferred, isRhsInferred);
+			
+			bool isLhsFixn = isLhsInferred ? unify(tl, tenv.Int) : true;
+			bool isRhsFixn = isRhsInferred ? unify(tr, tenv.Int) : true;
+			debug(semant) std.stdio.writefln("MUL isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
+			if (isLhsFixn && isRhsFixn)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Int, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Int, n.rhs);
+				debug(semant) std.stdio.writefln("MUL Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
 				return tuple(tenv.Int, trans.binMulInt(xl, xr));
-			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
+			}
+
+			bool isLhsFlon = isLhsInferred ? unify(tl, tenv.Real) : true;
+			bool isRhsFlon = isRhsInferred ? unify(tr, tenv.Real) : true;
+			if (isLhsFlon && isRhsFlon)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Real, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Real, n.rhs);
 				return tuple(tenv.Real, Ex.init);
-			else
-				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
+			}
+			
+			throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.DIV:	// FUTURE: built-in function CALLに統一
 			Ty tl, tr;
 			Ex xl, xr;
-			tie[tl, xl] <<= trexp(type, n.lhs);
-			tie[tr, xr] <<= trexp(type, n.rhs);
+			tie[tl, xl] <<= trexp(type, n.lhs);		bool isLhsInferred = tl.isInferred;
+			tie[tr, xr] <<= trexp(type, n.rhs);		bool isRhsInferred = tr.isInferred;
 			
-			if (unify(tl, tenv.Int) && unify(tr, tenv.Int))
+			debug(semant) std.stdio.writefln("DIV            = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
+			debug(semant) std.stdio.writefln("DIV isInferred = %s/%s", isLhsInferred, isRhsInferred);
+			
+			bool isLhsFixn = isLhsInferred ? unify(tl, tenv.Int) : true;
+			bool isRhsFixn = isRhsInferred ? unify(tr, tenv.Int) : true;
+			debug(semant) std.stdio.writefln("DIV isFixnum   = %s/%s", isLhsFixn, isRhsFixn);
+			if (isLhsFixn && isRhsFixn)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Int, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Int, n.rhs);
+				debug(semant) std.stdio.writefln("DIV Fixnum ope = lhs = %s : %s, rhs = %s : %s", xl, tl, xr, tr);
 				return tuple(tenv.Int, trans.binDivInt(xl, xr));
-			else if (unify(tl, tenv.Real) && unify(tr, tenv.Real))
+			}
+
+			bool isLhsFlon = isLhsInferred ? unify(tl, tenv.Real) : true;
+			bool isRhsFlon = isRhsInferred ? unify(tr, tenv.Real) : true;
+			if (isLhsFlon && isRhsFlon)
+			{
+				if (!isLhsInferred) tie[tl, xl] <<= trexp(tenv.Real, n.lhs);
+				if (!isRhsInferred) tie[tr, xr] <<= trexp(tenv.Real, n.rhs);
 				return tuple(tenv.Real, Ex.init);
-			else
-				throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
+			}
+			
+			throw error(n.pos, format("incompatible types for %s : %s and %s", n, tl, tr));
 		
 		case AstTag.CALL:
 			Ty tf, tr;  Ty[] ta;
 			Ex xf, xr;  Ex[] xa;
+			bool isInferredArgs = true;
 			
 			debug(semant) std.stdio.writefln("call ----");
 			foreach (arg ; n.rhs[])
@@ -252,14 +307,27 @@ out(r){ assert(!(cast(Ty)r.field[0]).isInstantiated || r.field[1] !is null); }bo
 				xa.length += 1;
 				tie[ta[$-1], xa[$-1]] <<= trexp(null, arg);
 					// Each type of argumens is always inferred (May be Meta).
+				isInferredArgs = isInferredArgs && ta[$-1].isInferred;
 			}
 			tr = type is null ? tenv.Meta() : type;
 			tf = tenv.Arrow(ta, tr);
 			tie[tf, xf] <<= trexp(tf, n.lhs);
-			debug(semant) std.stdio.writefln("call = fun = %s : %s", xf, tf);
+			debug(semant) std.stdio.writefln("call = fun = %s : %s, args.inferred = %s", xf, tf, isInferredArgs);
 			tr = typecheck(tf.returnType);
 			if (xf)
 			{
+				debug(semant)
+					foreach (i; 0 .. ta.length)
+						std.stdio.writefln(" arg = %s : %s, <== %s", xa[i], ta[i], tf.argumentType(i));
+				if (!isInferredArgs)
+				{
+					foreach (i, arg; n.rhs[])
+					{
+						if (xa[i] is null)
+							tie[ta[i], xa[i]] <<= trexp(tf.argumentType(i), arg);
+						debug(semant) std.stdio.writefln(" Arg = %s : %s", xa[i], ta[i]);
+					}
+				}
 				xr = trans.callFun(tf, xf, xa);
 				debug(semant) std.stdio.writefln("call tf = %s, isFunction = %s", tf, tf.isFunction);
 				debug(semant) std.stdio.writefln("     xf = %s", xf);

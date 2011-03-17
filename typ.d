@@ -135,6 +135,18 @@ class Ty
 			(aty.tag == TyTag.POLY && aty.tvars.length == 0 && aty.polty.isFunction);
 		
 	}
+	
+	Ty argumentType(size_t n)
+	in { assert(actualType.isFunction); }
+	body
+	{
+		auto aty = actualType;
+		if (aty.tag == TyTag.APP)
+			return aty.targs[n];
+		else // (aty.tag == TyTag.POLY)
+			return aty.polty.argumentType(n);
+	}
+	
 	@property Ty returnType()
 	in { assert(actualType.isFunction); }
 	body
