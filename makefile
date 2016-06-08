@@ -3,9 +3,17 @@
 
 DMD=dmd
 SRCS=\
-	main.d
+	main.d err.d file.d
 
 TARGET=qc
 
-all:
-	$(DMD) -of$(TARGET) $(SRCS)
+all: release
+
+release:
+	$(DMD) -g -of$(TARGET) $(SRCS)
+
+debug:
+	$(DMD) -g -of$(TARGET) -debug $(SRCS)
+
+clean:
+	@DEL *.obj
