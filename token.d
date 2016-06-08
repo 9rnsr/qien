@@ -50,6 +50,9 @@ enum TOK
     semicolon,
     dollar,
     at,
+
+    // keywords
+    def,
 }
 
 struct Token
@@ -65,54 +68,77 @@ struct Token
 
     string asstr()
     {
-        final switch (value)
+        foreach (s, t; map)
         {
-            case TOK.reserved:      return "<reserved>";
-
-            case TOK.eof:           return "<eof>";
-            case TOK.eol:           return "<eol>";
-
-            case TOK.integer:       return "<integer>";
-            case TOK.identifier:    return "<identifier>";
-            case TOK.string:        return "<string>";
-
-            case TOK.dot:           return ".";
-
-            case TOK.add:           return "+";
-            case TOK.sub:           return "-";
-            case TOK.mul:           return "*";
-            case TOK.div:           return "/";
-            case TOK.mod:           return "%";
-
-            case TOK.not:           return "!";
-            case TOK.andand:        return "&&";
-            case TOK.and:           return "&";
-            case TOK.oror:          return "||";
-            case TOK.or:            return "|";
-
-            case TOK.eq:            return "==";
-            case TOK.noteq:         return "!=";
-            case TOK.le:            return "<=";
-            case TOK.lt:            return "<";
-            case TOK.ge:            return ">=";
-            case TOK.gt:            return ">";
-
-            case TOK.goesto:        return "=>";
-            case TOK.assign:        return "=";
-
-            case TOK.lparen:        return "(";
-            case TOK.rparen:        return ")";
-            case TOK.lbracket:      return "[";
-            case TOK.rbracket:      return "]";
-            case TOK.lcurly:        return "{";
-            case TOK.rcurly:        return "}";
-
-            case TOK.tilde:         return "~";
-            case TOK.comma:         return ",";
-            case TOK.colon:         return ":";
-            case TOK.semicolon:     return ";";
-            case TOK.dollar:        return "$";
-            case TOK.at:            return "@";
+            if (t == value)
+                return s;
         }
+        assert(0);
+    }
+
+    static TOK checkKeyword(Id* id)
+    {
+        if (auto e = id.asstr in map)
+            return *e;
+        else
+            return TOK.identifier;
+    }
+
+private:
+    static immutable TOK[string] map;
+
+    static this()
+    {
+        map =
+        [
+            "<reserved>"    : TOK.reserved,
+
+            "<eof>"         : TOK.eof,
+            "<eol>"         : TOK.eol,
+
+            "<integer>"     : TOK.integer,
+            "<identifier>"  : TOK.identifier,
+            "<string>"      : TOK.string,
+
+            "."             : TOK.dot,
+
+            "+"             : TOK.add,
+            "-"             : TOK.sub,
+            "*"             : TOK.mul,
+            "/"             : TOK.div,
+            "%"             : TOK.mod,
+
+            "!"             : TOK.not,
+            "&&"            : TOK.andand,
+            "&"             : TOK.and,
+            "||"            : TOK.oror,
+            "|"             : TOK.or,
+
+            "=="            : TOK.eq,
+            "!="            : TOK.noteq,
+            "<="            : TOK.le,
+            "<"             : TOK.lt,
+            ">="            : TOK.ge,
+            ">"             : TOK.gt,
+
+            "=>"            : TOK.goesto,
+            "="             : TOK.assign,
+
+            "("             : TOK.lparen,
+            ")"             : TOK.rparen,
+            "["             : TOK.lbracket,
+            "]"             : TOK.rbracket,
+            "{"             : TOK.lcurly,
+            "}"             : TOK.rcurly,
+
+            "~"             : TOK.tilde,
+            ","             : TOK.comma,
+            ":"             : TOK.colon,
+            ";"             : TOK.semicolon,
+            "$"             : TOK.dollar,
+            "@"             : TOK.at,
+
+            "def"           : TOK.def,
+        ];
     }
 }

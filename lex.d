@@ -179,7 +179,7 @@ private:
                     }
                     auto id = Id.pool((cast(char[])b)[0 .. $ - buffer.length]);
                     t.ident = id;
-                    t.value = TOK.identifier;
+                    t.value = Token.checkKeyword(id);
                     return;
 
                 case '.':
