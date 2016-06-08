@@ -3,7 +3,8 @@
 
 DMD=dmd
 SRCS=\
-	main.d err.d file.d
+	main.d err.d file.d \
+	token.d id.d lex.d parse.d
 
 TARGET=qc
 
