@@ -80,3 +80,24 @@ interface Codegen
 {
     void codegen();
 }
+
+struct DeclTable
+{
+    Decl[Id*] aa;
+
+    Decl lookup(Id* ident)
+    {
+        if (auto pd = ident in aa)
+            return *pd;
+        else
+            return null;
+    }
+
+    Decl insert(Decl d)
+    {
+        if (auto pd = d.ident in aa)
+            return null;    // already in there
+        aa[d.ident] = d;
+        return d;
+    }
+}
