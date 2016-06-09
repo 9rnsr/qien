@@ -1,4 +1,5 @@
 def main()
 {
-    print("hello");
+    def msg = "hello";
+    print(msg);
 }

@@ -64,13 +64,25 @@ struct Parser
                 else
                     enforce(TOK.identifier);
 
-                auto fparams = parseParameters();
+                if (lexer.front.value == TOK.lparen)
+                {
+                    auto fparams = parseParameters();
 
-                Loc endLoc;
-                auto sbody = parseBlock(endLoc);
+                    Loc endLoc;
+                    auto sbody = parseBlock(endLoc);
 
-                auto d = new FuncDecl(defLoc, endLoc, ident, fparams, sbody);
-                return d;
+                    auto d = new FuncDecl(defLoc, endLoc, ident, fparams, sbody);
+                    return d;
+                }
+                else
+                {
+                    enforce(TOK.assign);
+                    auto einit = parseExpr();
+                    enforce(TOK.semicolon);
+
+                    auto d = new VarDecl(defLoc, ident, einit);
+                    return d;
+                }
 
             default:
                 /*t.*/error(t.loc, "unexpected token: %.*s", t.asstr.length, t.asstr.ptr);
@@ -107,6 +119,11 @@ struct Parser
     Stmt parseStmt()
     {
         const loc = lexer.front.loc;
+        if (lexer.front.value == TOK.def)
+        {
+            auto d = parseDecl();
+            return new DefStmt(loc, d);
+        }
         auto e = parseExpr();
         enforce(TOK.semicolon);
         return new ExprStmt(loc, e);
