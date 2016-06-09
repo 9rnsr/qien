@@ -5,6 +5,7 @@ import core.stdc.stdio;
 import qien.err;
 import qien.file;
 import qien.parse;
+import qien.semant;
 
 int main(string[] args)
 {
@@ -26,6 +27,8 @@ int main(string[] args)
     auto m = p.parseModule();
 
     debug printf("succeed\n");
+
+    runSemant(m);
 
     return 0;
 }
