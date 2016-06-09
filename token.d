@@ -78,6 +78,16 @@ struct Token
         assert(0);
     }
 
+    static const(char)* toChars(TOK tok)
+    {
+        foreach (s, t; map)
+        {
+            if (t == tok)
+                return s.ptr;
+        }
+        assert(0);
+    }
+
     static TOK checkKeyword(Id* id)
     {
         if (auto e = id.asstr in map)

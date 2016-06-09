@@ -48,17 +48,26 @@ class SemantVisitor : Visitor
         this.sc = sc;
     }
 
+    override void visit(Decl d)
+    {
+        if (!sc.func)
+            return;
+
+        sc.tab.insert(d);
+    }
+
     override void visit(VarDecl vd)
     {
         if (vd.einit)
             vd.einit.accept(this);
 
-        //if (sc.func)
-        //    sc.tab.insert(vd);
+        visit(cast(Decl)vd);
     }
 
     override void visit(FuncDecl fd)
     {
+        visit(cast(Decl)fd);
+
         foreach (vd; fd.fparams)
         {
             vd.accept(this);

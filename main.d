@@ -21,12 +21,18 @@ int main(string[] args)
         error("cannot find file %.*s", f.path.length, f.path.ptr);
         return 1;
     }
-    debug printf(">>>%.*s\n<<<\n", f.buffer.length, f.buffer.ptr);
+    //debug printf(">>>%.*s\n<<<\n", f.buffer.length, f.buffer.ptr);
 
     auto p = Parser(&f);
     auto m = p.parseModule();
 
-    debug printf("succeed\n");
+    //debug printf("succeed\n");
+
+    debug
+    {
+        import qien.printer;
+        printer(m);
+    }
 
     runSemant(m);
 

@@ -26,6 +26,6 @@ public:
 
     const(char)* toChars()
     {
-        return str.ptr;
+        return (str ~ '\0').ptr;
     }
 }

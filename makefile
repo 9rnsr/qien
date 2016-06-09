@@ -7,7 +7,8 @@ SRCS=\
 	token.d id.d lex.d parse.d \
 	decl.d expr.d stmt.d \
 	sc.d semant.d \
-	interp.d
+	interp.d \
+	printer.d
 
 TARGET=qc
 
