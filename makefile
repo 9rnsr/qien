@@ -6,7 +6,8 @@ SRCS=\
 	main.d err.d file.d loc.d visitor.d \
 	token.d id.d lex.d parse.d \
 	decl.d expr.d stmt.d \
-	sc.d semant.d
+	sc.d semant.d \
+	interp.d
 
 TARGET=qc
 
