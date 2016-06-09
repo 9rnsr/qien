@@ -3,6 +3,7 @@ module qien.lex;
 import qien.err;
 import qien.file;
 import qien.id;
+import qien.loc;
 import qien.token;
 
 bool empty(T)(T[] a) { return a.length == 0; }
@@ -11,26 +12,6 @@ void popFront(T)(ref T[] a) { a = a[1 .. $]; }
 
 public alias TOK = qien.token.TOK;
 public alias Token = qien.token.Token;
-
-struct Loc
-{
-    string file;
-    uint lnum;
-    uint cnum;
-
-    const(char)* toChars() const
-    {
-        import std.array : appender;
-        import std.format;
-
-        auto w = appender!string;
-        if (file)
-            w.put(file);
-        if (lnum)
-            formattedWrite(w, "(%s,%s)", lnum, cnum);
-        return w.data.ptr;
-    }
-}
 
 struct Lexer
 {
@@ -75,6 +56,7 @@ private:
             {
                 case 0:
                 case 0x1A:
+                    t.loc = loc;
                     t.value = TOK.eof;
                     return;
 
@@ -107,10 +89,12 @@ private:
                 case '8':
                 case '9':
                 Lnumber:
+                    t.loc = loc;
                     t.value = number(t);
                     return;
 
                 case '"':
+                    t.loc = loc;
                     t.value = escapeString();
                     return;
 
@@ -168,6 +152,7 @@ private:
                 case 'Z':
                 case '_':
                 case_ident:
+                    t.loc = loc;
                     auto b = buffer;
                     while (1)
                     {
@@ -183,36 +168,43 @@ private:
                     return;
 
                 case '.':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.dot;
                     return;
 
                 case '+':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.add;
                     return;
 
                 case '-':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.sub;
                     return;
 
                 case '*':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.mul;
                     return;
 
                 case '/':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.div;
                     return;
 
                 case '%':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.mod;
                     return;
 
                 case '&':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '|')
                     {
@@ -224,6 +216,7 @@ private:
                     return;
 
                 case '|':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '|')
                     {
@@ -235,6 +228,7 @@ private:
                     return;
 
                 case '=':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '=')
                     {
@@ -251,6 +245,7 @@ private:
                     return;
 
                 case '!':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '=')
                     {
@@ -262,6 +257,7 @@ private:
                     return;
 
                 case '<':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '=')
                     {
@@ -273,6 +269,7 @@ private:
                     return;
 
                 case '>':
+                    t.loc = loc;
                     buffer.popFront();
                     if (buffer.front == '=')
                     {
@@ -284,39 +281,43 @@ private:
                     return;
 
                 case '~':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.tilde;
                     return;
 
-                case '(':   buffer.popFront();   t.value = TOK.lparen;      return;
-                case ')':   buffer.popFront();   t.value = TOK.rparen;      return;
-                case '[':   buffer.popFront();   t.value = TOK.lbracket;    return;
-                case ']':   buffer.popFront();   t.value = TOK.rbracket;    return;
-                case '{':   buffer.popFront();   t.value = TOK.lcurly;      return;
-                case '}':   buffer.popFront();   t.value = TOK.rcurly;      return;
+                case '(':   t.loc = loc;    buffer.popFront();   t.value = TOK.lparen;      return;
+                case ')':   t.loc = loc;    buffer.popFront();   t.value = TOK.rparen;      return;
+                case '[':   t.loc = loc;    buffer.popFront();   t.value = TOK.lbracket;    return;
+                case ']':   t.loc = loc;    buffer.popFront();   t.value = TOK.rbracket;    return;
+                case '{':   t.loc = loc;    buffer.popFront();   t.value = TOK.lcurly;      return;
+                case '}':   t.loc = loc;    buffer.popFront();   t.value = TOK.rcurly;      return;
 
-                case ',':   buffer.popFront();   t.value = TOK.comma;       return;
+                case ',':   t.loc = loc;    buffer.popFront();   t.value = TOK.comma;       return;
 
-                case ';':   buffer.popFront();   t.value = TOK.semicolon;   return;
+                case ';':   t.loc = loc;    buffer.popFront();   t.value = TOK.semicolon;   return;
 
                 case ':':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.colon;
                     return;
 
                 case '$':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.dollar;
                     return;
 
                 case '@':
+                    t.loc = loc;
                     buffer.popFront();
                     t.value = TOK.at;
                     return;
 
                 default:
                     dchar c = buffer.front;
-                    error("character '%c' is not a valid token", c);
+                    error(loc, "character '%c' is not a valid token", c);
                     buffer.popFront();
                     continue;
             }
@@ -325,6 +326,7 @@ private:
 
     final TOK number(Token* t)
     {
+        const startLoc = this.loc;
         ulong n = 0;
         bool err = false;
         bool overflow = false;
@@ -367,7 +369,7 @@ private:
     Ldone:
         if (overflow && !err)
         {
-            error("integer overflow");
+            error(startLoc, "integer overflow");
             err = true;
         }
         t.uns64value = n;
@@ -376,6 +378,7 @@ private:
 
     uint escapeSequence()
     {
+        const startLoc = this.loc;
         uint c = buffer.front;
         switch (c)
         {
@@ -408,7 +411,7 @@ private:
                 break;
 
             default:
-                error("undefined escape sequence \\%c", c);
+                error(startLoc, "undefined escape sequence \\%c", c);
                 break;
         }
         return c;
@@ -463,7 +466,7 @@ private:
 
             case 0:
             case 0x1A:
-                error("unterminated string literal starting at %s", startLoc.toChars());
+                error(startLoc, "string literal unterminated at %s", loc.toChars());
                 t.strvalue = "";
                 return TOK.string;
 

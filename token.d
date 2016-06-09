@@ -1,5 +1,6 @@
 module qien.token;
 
+import qien.loc;
 import qien.id;
 
 enum TOK
@@ -58,6 +59,7 @@ enum TOK
 struct Token
 {
     TOK value;
+    Loc loc;
 
     Id* ident;
 

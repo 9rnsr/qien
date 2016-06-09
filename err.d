@@ -2,6 +2,8 @@ module qien.err;
 
 import core.stdc.stdio;
 
+import qien.loc;
+
 enum COLOR : int
 {
     BLACK       = 0,
@@ -82,6 +84,26 @@ void error(const(char)* format, ...)
 
     setConsoleColorBright(true);
     fputs("command: ", stderr);
+    setConsoleColor(COLOR.RED, true);
+    fputs("Error: ", stderr);
+    resetConsoleColor();
+    vfprintf(stderr, format, ap);
+    fputs("\n", stderr);
+    fflush(stderr);
+
+    va_end(ap);
+}
+
+void error(Loc loc, const(char)* format, ...)
+{
+    import core.vararg;
+
+    va_list ap;
+    va_start(ap, format);
+
+    setConsoleColorBright(true);
+    fputs(loc.toChars(), stderr);
+    fputs(": ", stderr);
     setConsoleColor(COLOR.RED, true);
     fputs("Error: ", stderr);
     resetConsoleColor();

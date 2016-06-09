@@ -7,6 +7,7 @@ import qien.expr;
 import qien.file;
 import qien.id;
 import qien.lex;
+import qien.loc;
 import qien.stmt;
 import qien.token;
 
@@ -21,11 +22,16 @@ struct Parser
 
     void enforce(TOK tok)
     {
+        enforce(lexer.front.loc, tok);
+    }
+
+    void enforce(Loc loc, TOK tok)
+    {
         auto t = lexer.front;
         if (t.value == tok)
             lexer.popFront();
         else
-            error("unexpected token: %.*s", t.asstr.ptr, t.asstr.length);
+            error(loc, "unexpected token: %.*s", t.asstr.ptr, t.asstr.length);
     }
 
     Module parseModule()
@@ -47,7 +53,7 @@ struct Parser
         switch (t.value)
         {
             case TOK.def:
-                //auto loc;
+                const defLoc = t.loc;
                 lexer.popFront();
                 Id* ident;
                 if (lexer.front.value == TOK.identifier)
@@ -60,13 +66,14 @@ struct Parser
 
                 auto fparams = parseParameters();
 
-                auto sbody = parseBlock();
+                Loc endLoc;
+                auto sbody = parseBlock(endLoc);
 
-                auto d = new FuncDecl(Loc(), Loc(), ident, fparams, sbody);
+                auto d = new FuncDecl(defLoc, endLoc, ident, fparams, sbody);
                 return d;
 
             default:
-                /*t.*/error("unexpected token: %.*s", t.asstr.length, t.asstr.ptr);
+                /*t.*/error(t.loc, "unexpected token: %.*s", t.asstr.length, t.asstr.ptr);
                 lexer.popFront();
                 return null;
         }
@@ -81,26 +88,28 @@ struct Parser
         return null;
     }
 
-    Stmt parseBlock()
+    Stmt parseBlock(ref Loc endLoc)
     {
-        Stmt[] statements;
-
+        const loc = lexer.front.loc;
         enforce(TOK.lcurly);
+        Stmt[] statements;
         while (lexer.front.value != TOK.rcurly)
         {
             auto s = parseStmt();
             statements ~= s;
         }
         enforce(TOK.rcurly);
+        endLoc = lexer.front.loc;
 
-        return new CompoundStmt(Loc(), statements);
+        return new CompoundStmt(loc, statements);
     }
 
     Stmt parseStmt()
     {
+        const loc = lexer.front.loc;
         auto e = parseExpr();
         enforce(TOK.semicolon);
-        return new ExprStmt(Loc(), e);
+        return new ExprStmt(loc, e);
     }
 
     Expr parseExpr()
@@ -121,6 +130,7 @@ struct Parser
         auto e = parsePrimaryExpr();
         if (lexer.front.value == TOK.lparen)
         {
+            const loc = lexer.front.loc;
             lexer.popFront();
 
             Expr[] arguments;
@@ -144,19 +154,20 @@ struct Parser
                 break;
             }
 
-            e = new CallExpr(Loc(), e, arguments);
+            e = new CallExpr(loc, e, arguments);
         }
         return e;
     }
 
     Expr parsePrimaryExpr()
     {
+        const loc = lexer.front.loc;
         if (lexer.front.value == TOK.identifier)
         {
             auto id = lexer.front.ident;
             lexer.popFront();
 
-            auto e = new IdentifierExp(Loc(), id);
+            auto e = new IdentifierExp(loc, id);
             return e;
         }
         if (lexer.front.value == TOK.string)
@@ -164,11 +175,11 @@ struct Parser
             auto str = lexer.front.strvalue;
             lexer.popFront();
 
-            auto e = new StringExpr(Loc(), str);
+            auto e = new StringExpr(loc, str);
             return e;
         }
 
-        error("unexpected token");
+        error(loc, "unexpected token");
         return null;
     }
 }

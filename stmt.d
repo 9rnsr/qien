@@ -2,7 +2,7 @@ module qien.stmt;
 
 import qien.decl;
 import qien.expr;
-import qien.lex;
+import qien.loc;
 
 class Stmt
 {

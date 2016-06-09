@@ -2,7 +2,7 @@ module qien.expr;
 
 import qien.decl;
 import qien.id;
-import qien.lex;
+import qien.loc;
 
 class Expr
 {
