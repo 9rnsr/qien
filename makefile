@@ -3,7 +3,7 @@
 
 DMD=dmd
 SRCS=\
-	main.d err.d file.d loc.d \
+	main.d err.d file.d loc.d visitor.d \
 	token.d id.d lex.d parse.d \
 	decl.d expr.d stmt.d
 

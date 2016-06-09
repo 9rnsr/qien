@@ -3,6 +3,7 @@ module qien.stmt;
 import qien.decl;
 import qien.expr;
 import qien.loc;
+import qien.visitor;
 
 class Stmt
 {
@@ -12,6 +13,8 @@ class Stmt
     {
         this.loc = loc;
     }
+
+    void accept(Visitor v) { v.visit(this); }
 }
 
 class ExprStmt : Stmt
@@ -23,6 +26,8 @@ class ExprStmt : Stmt
         super(loc);
         this.expr = expr;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class DefStmt : Stmt
@@ -34,6 +39,8 @@ class DefStmt : Stmt
         super(loc);
         this.decl = decl;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class CompoundStmt : Stmt
@@ -45,6 +52,8 @@ class CompoundStmt : Stmt
         super(loc);
         this.statements = statements;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class ScopeStmt : Stmt
@@ -56,4 +65,6 @@ class ScopeStmt : Stmt
         super(loc);
         this.stmt = stmt;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }

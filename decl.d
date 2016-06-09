@@ -4,6 +4,7 @@ import qien.expr;
 import qien.id;
 import qien.loc;
 import qien.stmt;
+import qien.visitor;
 
 class Module
 {
@@ -13,6 +14,8 @@ class Module
     {
         this.members = members;
     }
+
+    void accept(Visitor v) { v.visit(this); }
 }
 
 class Decl
@@ -25,6 +28,8 @@ class Decl
         this.loc = loc;
         this.ident = ident;
     }
+
+    void accept(Visitor v) { v.visit(this); }
 }
 
 class FuncDecl : Decl//, Codegen
@@ -40,6 +45,8 @@ class FuncDecl : Decl//, Codegen
         this.fparams = fparams;
         this.sbody = sbody;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class VarDecl : Decl//, Codegen
@@ -52,6 +59,8 @@ class VarDecl : Decl//, Codegen
         super(loc, ident);
         this.einit = einit;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class TypeDecl : Decl
@@ -63,6 +72,8 @@ class TypeDecl : Decl
         super(loc, ident);
         this.members = members;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 interface Codegen

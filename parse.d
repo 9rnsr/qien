@@ -167,7 +167,7 @@ struct Parser
             auto id = lexer.front.ident;
             lexer.popFront();
 
-            auto e = new IdentifierExp(loc, id);
+            auto e = new IdentifierExpr(loc, id);
             return e;
         }
         if (lexer.front.value == TOK.string)

@@ -3,6 +3,7 @@ module qien.expr;
 import qien.decl;
 import qien.id;
 import qien.loc;
+import qien.visitor;
 
 class Expr
 {
@@ -12,6 +13,8 @@ class Expr
     {
         this.loc = loc;
     }
+
+    void accept(Visitor v) { v.visit(this); }
 }
 
 class ErrorExpr : Expr
@@ -20,6 +23,8 @@ class ErrorExpr : Expr
     {
         super(Loc());
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class IntegerExpr : Expr
@@ -31,6 +36,8 @@ class IntegerExpr : Expr
         super(loc);
         this.value = value;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class StringExpr : Expr
@@ -42,6 +49,8 @@ class StringExpr : Expr
         super(loc);
         this.value = value;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class FuncExpr : Expr
@@ -53,9 +62,11 @@ class FuncExpr : Expr
         super(loc);
         this.fd = fd;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
-class IdentifierExp : Expr
+class IdentifierExpr : Expr
 {
     Id* ident;
 
@@ -64,6 +75,8 @@ class IdentifierExp : Expr
         super(loc);
         this.ident = ident;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class UnaExpr : Expr
@@ -75,6 +88,8 @@ class UnaExpr : Expr
         super(loc);
         this.e1 = e1;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class CallExpr : UnaExpr
@@ -86,6 +101,8 @@ class CallExpr : UnaExpr
         super(loc, e1);
         this.arguments = arguments;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class BinExpr : Expr
@@ -99,6 +116,8 @@ class BinExpr : Expr
         this.e1 = e1;
         this.e2 = e2;
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class AddExpr : BinExpr
@@ -107,6 +126,8 @@ class AddExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class SubExpr : BinExpr
@@ -115,6 +136,8 @@ class SubExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class MulExpr : BinExpr
@@ -123,6 +146,8 @@ class MulExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class DivExpr : BinExpr
@@ -131,6 +156,8 @@ class DivExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class ModExpr : BinExpr
@@ -139,6 +166,8 @@ class ModExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class AndAndExpr : BinExpr
@@ -147,6 +176,8 @@ class AndAndExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 
     invariant
     {
@@ -162,6 +193,8 @@ class AndExpr : BinExpr
         super(loc, e1, e2);
     }
 
+    override void accept(Visitor v) { v.visit(this); }
+
     invariant
     {
         //assert e1.type.checkBitwise;
@@ -175,6 +208,8 @@ class OrOrExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 
     invariant
     {
@@ -190,6 +225,8 @@ class OrExpr : BinExpr
         super(loc, e1, e2);
     }
 
+    override void accept(Visitor v) { v.visit(this); }
+
     invariant
     {
         //assert e1.type.checkBitwise;
@@ -203,6 +240,8 @@ class EqExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class CmpExpr : BinExpr
@@ -211,6 +250,8 @@ class CmpExpr : BinExpr
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
 
 class AssignExpr : BinExpr  // ?
@@ -219,4 +260,6 @@ class AssignExpr : BinExpr  // ?
     {
         super(loc, e1, e2);
     }
+
+    override void accept(Visitor v) { v.visit(this); }
 }
