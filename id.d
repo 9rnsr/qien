@@ -23,4 +23,9 @@ public:
     {
         return str;
     }
+
+    const(char)* toChars()
+    {
+        return str.ptr;
+    }
 }

@@ -1,8 +1,8 @@
 module qien.visitor;
 
 import qien.decl;
-import qien.stmt;
 import qien.expr;
+import qien.stmt;
 
 class Visitor
 {
